@@ -12,20 +12,72 @@ import java.math.*;
 
 /**
  * Group Chat Client.
+ * Also contains data on chat client to be shared across threads.
+ * Contains data structure of other chat members, the messages received, and the knowledge of which user has which messages.
+ * Contains references to relevant threads / runnables, so for example the Receiver of control packets can indirectly call a method on the Sender.
  */
 public class Client {
 
     /**
      * The Chat this client is connected to.
      */
-    public Chat chat;
+    public Chat chat = null;
 
     /**
-     * Creates client for given chat.
-     * @param chat Group chat for this client.
+     * The receiver thread for client's control packets
      */
-    public Client(Chat chat) {
-        this.chat = chat;
+    public Receiver receiver = null;
+
+    /**
+     * The thread for receiving data
+     */
+    public Leecher leecher = null;
+
+    /**
+     * Chosen username
+     */
+    public String username = null;
+
+    /**
+     * Creates client.
+     */
+    public Client(String groupName, InetAddress serverAddress, int serverPort, String username) {
+        this.username = username;
+        this.receiver = new Receiver(this);
+        this.leecher = new Leecher(this);
+        Group group = null;
+        try {
+            group = this.requestGroupInfo(groupName, serverAddress, serverPort);
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+        
+        this.chat = new Chat(group);
+    }
+
+    /**
+     * Sends server request for group info.
+     * @param groupName name of group requested to join
+     * @param serverAddress IP address of server to request
+     * @param serverPort Port on server to request from
+     * @param username client's requested name.
+     * @return Group to be a part of.
+     */
+    public Group requestGroupInfo(String groupName, InetAddress serverAddress, int serverPort) throws IOException {
+        // connect to server to request chat data
+        Socket clientSocket = new Socket(serverAddress, serverPort);
+        BufferedInputStream inFromServer = new BufferedInputStream(clientSocket.getInputStream());
+        DataOutputStream outToServer = new DataOutputStream(clientSocket.getOutputStream());
+
+        // formulate request.
+        byte[] request = serverRequest(groupName);
+        outToServer.write(request);
+
+        Group group = Group.unpack(groupName, inFromServer);
+
+        clientSocket.close();
+
+        return group;
     }
 
     /**
@@ -43,14 +95,15 @@ public class Client {
 
     /**
      * @param chatName The name of the chat to look for.
-     * @param username The user's requested username for the group chat.
-     * @return Byte array to send over the wire.s
+     * @return Byte array to send over the wire.
      */
-    public static byte[] serverRequest(String chatName, String username) {
+    public byte[] serverRequest(String groupName) {
         ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
         try {
-            User.writeString(chatName, byteStream);
-            User.writeString(username, byteStream);
+            IOHelper.writeString(groupName, byteStream);
+            IOHelper.writeString(username, byteStream);
+            IOHelper.writeInt(this.receiver.port, byteStream);
+            IOHelper.writeInt(this.leecher.port, byteStream);
         } catch (IOException ex) {
             ex.printStackTrace();
             return null;
@@ -67,21 +120,10 @@ public class Client {
             return;
         }
 
-        // connect to server to request chat data
-        Socket clientSocket;
         InetAddress serverIP = InetAddress.getByName(args[0]);
         int serverPort = Integer.parseInt(args[1]);
-        clientSocket = new Socket(serverIP, serverPort);
-        BufferedInputStream inFromServer = new BufferedInputStream(clientSocket.getInputStream());
-        DataOutputStream outToServer = new DataOutputStream(clientSocket.getOutputStream());
 
-        // formulate request.
-        byte[] request = serverRequest(args[2], args[3]);
-        outToServer.write(request);
-
-        Client client = new Client(Chat.unpack(args[2], inFromServer));
-
-        clientSocket.close();
+        Client client = new Client(args[2], serverIP, serverPort, args[3]);
 
         // connect to chat (P2P)
         System.out.println("Client connected to chat");

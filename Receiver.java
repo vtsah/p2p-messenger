@@ -19,9 +19,9 @@ public class Receiver implements Runnable {
     public int port = 0;
 
     /**
-     * Global data for use on client.
+     * Global data for use on client is stored within Client object.
      */
-    private ClientData data = null;
+    private Client client = null;
 
     /**
      * Socket for receiving control messages
@@ -33,9 +33,15 @@ public class Receiver implements Runnable {
      * The port of this UDP socket is available through the port property.
      * @param data the global data for the client.
      */
-    public Receiver(ClientData data) throws SocketException {
-        this.data = data;
-        this.socket = new DatagramSocket();
+    public Receiver(Client client) {
+        this.client = client;
+        try {
+            this.socket = new DatagramSocket();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            this.socket = null;
+        }
+        
         this.port = socket.getLocalPort();
     }
 

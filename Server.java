@@ -3,7 +3,7 @@
  *
  * Protocol description, over TCP:
  * Request format:
- * Chat name length n (4 bytes), chat name in ASCII (n bytes), username length m (4 bytes), username in ascii (m bytes)
+ * Group name length n (4 bytes), group name in ASCII (n bytes), username length m (4 bytes), username in ascii (m bytes), control port (4 bytes), data port (4 bytes)
  * Response format:
  * Number of users (4 bytes), List of users: {IP address length n (4 bytes), IP address (n bytes), Port (4 bytes), username length m (4 bytes), username in ascii (m bytes)}
  */
@@ -24,7 +24,7 @@ public class Server {
     /**
      * Ongoing chats, searchable by chat name.
      */
-    private HashMap<String, Chat> groupChats = null;
+    private HashMap<String, Group> groups = null;
 
     /**
      * Creates server and runs it.
@@ -34,7 +34,7 @@ public class Server {
         ServerSocket welcomeSocket = new ServerSocket(port, 1);
         System.out.println("Server started; listening at port " + port);
 
-        this.groupChats = new HashMap<String, Chat>();
+        this.groups = new HashMap<String, Group>();
 
         while (true) {
             // accept connection from connection queue
@@ -46,23 +46,24 @@ public class Server {
             // create write stream to send output
             DataOutputStream outToClient = new DataOutputStream(connectionSocket.getOutputStream());
 
-            String chatName = User.getString(inFromClient);
-            String username = User.getString(inFromClient);
+            String groupName = IOHelper.getString(inFromClient);
+            String username = IOHelper.getString(inFromClient);
 
             InetAddress ip = connectionSocket.getInetAddress();
-            int userPort = connectionSocket.getPort();
+            int userPort = IOHelper.getInt(inFromClient);
+            int dataPort = IOHelper.getInt(inFromClient);
 
-            User newUser = new User(username, ip, userPort);
+            User newUser = new User(username, ip, userPort, dataPort);
 
-            Chat currentChat = this.groupChats.get(chatName);
-            if (currentChat == null) {
-                currentChat = new Chat(chatName);
-                this.groupChats.put(chatName, currentChat);
+            Group currentGroup = this.groups.get(groupName);
+            if (currentGroup == null) {
+                currentGroup = new Group(groupName);
+                this.groups.put(groupName, currentGroup);
             }
 
-            outToClient.write(currentChat.pack());
+            outToClient.write(currentGroup.pack());
 
-            currentChat.joinChat(newUser);
+            currentGroup.joinGroup(newUser);
 
             connectionSocket.close();
         }
