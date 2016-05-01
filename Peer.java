@@ -84,5 +84,31 @@ public class Peer {
 
         // TODO store and use message creation date
     }
+
+    /**
+     * Send my contact information to this peer.
+     * @param user The contact information to send.
+     */
+    public void giveBusinessCard(User user) {
+        System.out.println("Sending business card to user "+this.user.userID);
+        // construct business card
+        byte[] card = user.pack();
+
+        Socket socket;
+        DataOutputStream outToServer;
+        try {
+            socket = new Socket(this.user.address, this.user.dataPort);
+            outToServer = new DataOutputStream(socket.getOutputStream());
+            // no input necessary, this is a one-way conversation
+
+            outToServer.write(card);
+            outToServer.flush(); // necessary?
+
+            socket.close();
+        } catch (IOException ex) {
+            ex.printStackTrace();
+            return;
+        }
+    }
 }
 

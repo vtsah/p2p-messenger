@@ -43,6 +43,8 @@ public class Client {
      */
     public int userUUID = 0;
 
+    public User user = null;
+
     /**
      * Creates client.
      */
@@ -59,12 +61,29 @@ public class Client {
         
         this.chat = new Chat(group, this.userUUID);
 
+        // notify everyone in the chat that I exist
+        this.beLoud();
+
         // start receiver and seeder threads
         Thread receiverThread = new Thread(this.receiver);
         receiverThread.start();
 
         Thread seederThread = new Thread(this.seeder);
         seederThread.start();
+    }
+
+    /**
+     * Make sure everyone knows I exist
+     * Give them my IP and ports so they know how to get in touch with me.
+     * Do this by sending to their data ports, with TCP, to make sure they get the message.
+     * This should be called before starting other threads, so don't need to synchronize.
+     */
+    public void beLoud() {
+        Iterator<Peer> myPeers = this.chat.peers.iterator();
+        while (myPeers.hasNext()) {
+            Peer peer = myPeers.next();
+            peer.giveBusinessCard(this.user);
+        }
     }
 
     /**
@@ -93,6 +112,8 @@ public class Client {
 
         clientSocket.close();
 
+        this.user = group.findMe(this.userUUID);
+
         return group;
     }
 
@@ -118,7 +139,7 @@ public class Client {
         ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
         try {
             IOHelper.writeString(groupName, byteStream);
-            IOHelper.writeString(username, byteStream);
+            IOHelper.writeString(this.username, byteStream);
             IOHelper.writeInt(this.receiver.port, byteStream);
             IOHelper.writeInt(this.seeder.port, byteStream);
         } catch (IOException ex) {

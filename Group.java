@@ -87,4 +87,25 @@ public class Group {
 
         return byteStream.toByteArray();
     }
+
+    /** 
+     * Finds the current user, removes her from the group, and returns her.
+     * @param userID The ID for the current user.
+     * @return User with that ID.
+     */
+    public User findMe(int userID) {
+        int index = 0;
+        Iterator<User> userIterator = this.users.iterator();
+
+        while (userIterator.hasNext()) {
+            User user = userIterator.next();
+
+            if (user.userID == userID) {
+                return this.users.remove(index);
+            }
+
+            index++;
+        }
+        return null;
+    }
 }

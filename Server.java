@@ -65,6 +65,8 @@ public class Server {
                 this.groups.put(groupName, currentGroup);
             }
 
+            currentGroup.joinGroup(newUser);
+
             ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
 
             IOHelper.writeInt(nextUUID, byteStream);
@@ -72,8 +74,6 @@ public class Server {
             outToClient.write(byteStream.toByteArray());
 
             outToClient.write(currentGroup.pack());
-
-            currentGroup.joinGroup(newUser);
 
             connectionSocket.close();
 

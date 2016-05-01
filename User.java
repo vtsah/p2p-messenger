@@ -6,7 +6,8 @@ import java.nio.charset.*;
 import java.math.*;
 
 /**
- * Represents a user, with relevant properties associated
+ * Represents a user, with relevant properties associated.
+ * The first four bytes of user's representation is always the ID.
  */
 public class User {
     /**
@@ -55,14 +56,14 @@ public class User {
     public byte[] pack() {
         ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
         try {
+            IOHelper.writeInt(this.userID, byteStream);
+
             byte[] addressBytes = this.address.getAddress();
             IOHelper.writeInt(addressBytes.length, byteStream);
             byteStream.write(addressBytes);
 
             IOHelper.writeInt(this.port, byteStream);
             IOHelper.writeInt(this.dataPort, byteStream);
-
-            IOHelper.writeInt(this.userID, byteStream);
 
             IOHelper.writeString(this.username, byteStream);
         } catch (Exception ex) {
@@ -73,11 +74,28 @@ public class User {
         return byteStream.toByteArray();
     }
 
+    /**
+     * Create a user object from a stream of data
+     */
     public static User unpack(BufferedInputStream input) {
+        int userID = 0;
+        try {
+            userID = IOHelper.getInt(input);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return null;
+        }
+
+        return User.unpackWithID(userID, input);
+    }
+
+    /**
+     * Unpack after already extracting ID
+     */
+    public static User unpackWithID(int userID, BufferedInputStream input) {
         InetAddress ipAddress = null;
         int dataPort = 0;
         int port = 0;
-        int userID = 0;
         String username = null;
         try {
             // IP address is n bytes
@@ -87,8 +105,6 @@ public class User {
 
             port = IOHelper.getInt(input);
             dataPort = IOHelper.getInt(input);
-
-            userID = IOHelper.getInt(input);
 
             username = IOHelper.getString(input);
         } catch (Exception ex) {

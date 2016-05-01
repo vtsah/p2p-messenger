@@ -37,6 +37,7 @@ public class ControlPacket {
             BufferedInputStream input = new BufferedInputStream(byteStream);
 
             type = Type.values()[IOHelper.getInt(input)];
+
             senderID = IOHelper.getInt(input);
             messageCreator = IOHelper.getInt(input);
             sequenceNumber = IOHelper.getInt(input);

@@ -58,15 +58,11 @@ public class Chat {
     private HashMap<Integer, ArrayList<Message>> messages = new HashMap<Integer, ArrayList<Message>>();
 
     /**
-     * Notification has arrived that another client has a message.
-     * Update the Peer, then possibly request the packet.
-     * @param peerID ID number of peer who has the packet
-     * @param senderID ID number of person who originally wrote the message.
-     * @param sequenceNumber Index in messages written by senderID
-     * @param messageCreationDate Date in milliseconds when the message was written.
+     * Searches for the peer with requested ID
+     * @param peerID The identifying number for requested peer.
+     * @return The Peer with this peerID, or null if that peer doesn't exist
      */
-    public void peerHas(int peerID, int senderID, int sequenceNumber, long messageCreationDate) {
-        // find peer
+    public Peer checkAddressBook(int peerID) {
         Peer peer = null;
         synchronized (this.peers) {
             Iterator<Peer> peerIterator = this.peers.iterator();
@@ -78,6 +74,20 @@ public class Chat {
                 }
             }
         }
+        return peer;
+    }
+
+    /**
+     * Notification has arrived that another client has a message.
+     * Update the Peer, then possibly request the packet.
+     * @param peerID ID number of peer who has the packet
+     * @param senderID ID number of person who originally wrote the message.
+     * @param sequenceNumber Index in messages written by senderID
+     * @param messageCreationDate Date in milliseconds when the message was written.
+     */
+    public void peerHas(int peerID, int senderID, int sequenceNumber, long messageCreationDate) {
+        // find peer
+        Peer peer = this.checkAddressBook(peerID);
 
         if (peer != null) {
             // found peer.
@@ -134,5 +144,16 @@ public class Chat {
      */
     public void newMessage(String message) {
         this.have(new Message(message.getBytes(StandardCharsets.US_ASCII), this.hostID, this.sequenceNumber++, System.currentTimeMillis()));
+    }
+
+    /**
+     * Add peer for given user to list of peers.
+     * @param user The Peer's credentials
+     */
+    public void makeFriend(User user) {
+        Peer peer = new Peer(user);
+        synchronized (this.peers) {
+            this.peers.add(peer);
+        }
     }
 }
