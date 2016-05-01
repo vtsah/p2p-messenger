@@ -5,7 +5,7 @@
  * Request format:
  * Group name length n (4 bytes), group name in ASCII (n bytes), username length m (4 bytes), username in ascii (m bytes), control port (4 bytes), data port (4 bytes)
  * Response format:
- * Number of users (4 bytes), List of users: {IP address length n (4 bytes), IP address (n bytes), Port (4 bytes), username length m (4 bytes), username in ascii (m bytes)}
+ * Unique user ID (4 bytes), Number of users (4 bytes), List of users: {IP address length n (4 bytes), IP address (n bytes), Port (4 bytes), username length m (4 bytes), username in ascii (m bytes)}
  */
 
 import java.io.*;
@@ -31,7 +31,11 @@ public class Server {
      * @param port The local port for this server to listen on
      */
     public Server(int port) throws Exception {
-        ServerSocket welcomeSocket = new ServerSocket(port, 1);
+
+        int nextUUID = 0;
+
+        // set up welcome socket and run server
+        ServerSocket welcomeSocket = new ServerSocket(port, 4);
         System.out.println("Server started; listening at port " + port);
 
         this.groups = new HashMap<String, Group>();
@@ -53,7 +57,7 @@ public class Server {
             int userPort = IOHelper.getInt(inFromClient);
             int dataPort = IOHelper.getInt(inFromClient);
 
-            User newUser = new User(username, ip, userPort, dataPort);
+            User newUser = new User(username, ip, userPort, dataPort, nextUUID);
 
             Group currentGroup = this.groups.get(groupName);
             if (currentGroup == null) {
@@ -61,11 +65,19 @@ public class Server {
                 this.groups.put(groupName, currentGroup);
             }
 
+            ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
+
+            IOHelper.writeInt(nextUUID, byteStream);
+
+            outToClient.write(byteStream.toByteArray());
+
             outToClient.write(currentGroup.pack());
 
             currentGroup.joinGroup(newUser);
 
             connectionSocket.close();
+
+            nextUUID++;
         }
     }
 

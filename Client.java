@@ -29,9 +29,9 @@ public class Client {
     public Receiver receiver = null;
 
     /**
-     * The thread for receiving data
+     * The thread for sending data
      */
-    public Leecher leecher = null;
+    public Seeder seeder = null;
 
     /**
      * Chosen username
@@ -39,12 +39,17 @@ public class Client {
     public String username = null;
 
     /**
+     * UUID for user, assigned by server to be a user identifier, unique to the group
+     */
+    public int userUUID = 0;
+
+    /**
      * Creates client.
      */
     public Client(String groupName, InetAddress serverAddress, int serverPort, String username) {
         this.username = username;
         this.receiver = new Receiver(this);
-        this.leecher = new Leecher(this);
+        this.seeder = new Seeder(this);
         Group group = null;
         try {
             group = this.requestGroupInfo(groupName, serverAddress, serverPort);
@@ -52,7 +57,14 @@ public class Client {
             ex.printStackTrace();
         }
         
-        this.chat = new Chat(group);
+        this.chat = new Chat(group, this.userUUID);
+
+        // start receiver and seeder threads
+        Thread receiverThread = new Thread(this.receiver);
+        receiverThread.start();
+
+        Thread seederThread = new Thread(this.seeder);
+        seederThread.start();
     }
 
     /**
@@ -73,6 +85,10 @@ public class Client {
         byte[] request = serverRequest(groupName);
         outToServer.write(request);
 
+        this.userUUID = IOHelper.getInt(inFromServer);
+
+        System.out.println("UUID assigned: "+this.userUUID);
+
         Group group = Group.unpack(groupName, inFromServer);
 
         clientSocket.close();
@@ -90,6 +106,7 @@ public class Client {
             String message = userInput.next();
 
             System.out.println("Sending "+message);
+            this.chat.newMessage(message);
         }
     }
 
@@ -103,7 +120,7 @@ public class Client {
             IOHelper.writeString(groupName, byteStream);
             IOHelper.writeString(username, byteStream);
             IOHelper.writeInt(this.receiver.port, byteStream);
-            IOHelper.writeInt(this.leecher.port, byteStream);
+            IOHelper.writeInt(this.seeder.port, byteStream);
         } catch (IOException ex) {
             ex.printStackTrace();
             return null;
@@ -126,7 +143,7 @@ public class Client {
         Client client = new Client(args[2], serverIP, serverPort, args[3]);
 
         // connect to chat (P2P)
-        System.out.println("Client connected to chat");
+        System.out.println("Client connected to chat with ID "+client.userUUID);
 
         client.startMessaging();
     }

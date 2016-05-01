@@ -25,20 +25,26 @@ public class User {
     public int port;
 
     /**
-     * User's port for receiving data (TCP connections with Server Socket)
+     * User's port for sending data (TCP connections with Server Socket)
      */
     public int dataPort;
+
+    /**
+     * User's unique identifier in the group
+     */
+    public int userID;
 
     /**
      * @param username User's public username
      * @param address User's address from packet
      * @param port User's port
      */
-    public User(String username, InetAddress address, int port, int dataPort) {
+    public User(String username, InetAddress address, int port, int dataPort, int userID) {
         this.username = username;
         this.address = address;
         this.port = port;
         this.dataPort = dataPort;
+        this.userID = userID;
     }
 
     /**
@@ -56,6 +62,8 @@ public class User {
             IOHelper.writeInt(this.port, byteStream);
             IOHelper.writeInt(this.dataPort, byteStream);
 
+            IOHelper.writeInt(this.userID, byteStream);
+
             IOHelper.writeString(this.username, byteStream);
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -69,6 +77,7 @@ public class User {
         InetAddress ipAddress = null;
         int dataPort = 0;
         int port = 0;
+        int userID = 0;
         String username = null;
         try {
             // IP address is n bytes
@@ -79,13 +88,15 @@ public class User {
             port = IOHelper.getInt(input);
             dataPort = IOHelper.getInt(input);
 
+            userID = IOHelper.getInt(input);
+
             username = IOHelper.getString(input);
         } catch (Exception ex) {
             ex.printStackTrace();
             return null;
         }
 
-        return new User(username, ipAddress, port, dataPort);
+        return new User(username, ipAddress, port, dataPort, userID);
     }
 
 }

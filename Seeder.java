@@ -1,5 +1,5 @@
 /**
- * Thread for accepting data packets.
+ * Thread / ServerSocket for getting request for, and sending data packets.
  */
 
 import java.io.*;
@@ -9,7 +9,7 @@ import java.nio.*;
 import java.nio.charset.*;
 import java.math.*;
 
-public class Leecher implements Runnable {
+public class Seeder implements Runnable {
     /**
      * Port for making new connections
      */
@@ -25,12 +25,14 @@ public class Leecher implements Runnable {
      */
     private Client client;
 
-    public Leecher(Client client) {
+    public Seeder(Client client) {
         this.client = client;
         Random rand = new Random();
         while (this.socket == null) {
             try {
-                this.socket = new ServerSocket( 1000 + rand.nextInt(200) );
+                // apparently you need to initialize with a port number.
+                // just get one that works.
+                this.socket = new ServerSocket( 1000 + rand.nextInt(1000) );
             } catch (Exception ex) {
                 // just try again
             }
@@ -40,7 +42,7 @@ public class Leecher implements Runnable {
     }
 
     public void run() {
-        
+
     }
 
 }

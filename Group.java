@@ -41,6 +41,7 @@ public class Group {
 
         try {
             int userCount = IOHelper.getInt(input);
+            System.out.println("There are "+userCount+" users");
             for (int i = 0; i < userCount; i++) {
                 group.users.add(User.unpack(input));
             }
@@ -69,6 +70,8 @@ public class Group {
         ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
         
         IOHelper.writeInt(this.users.size(), byteStream);
+
+        System.out.println("There are "+this.users.size()+" users");
 
         Iterator<User> userIterator = this.users.iterator();
         while (userIterator.hasNext()) {

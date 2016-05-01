@@ -68,7 +68,15 @@ public class Receiver implements Runnable {
             ControlPacket packet = ControlPacket.unpack(request.getData());
 
             if (packet != null) {
+                switch (packet.type) {
+                    case HAVE:
+                    this.client.chat.peerHas(packet.senderID, packet.messageCreator, packet.sequenceNumber, packet.messageCreationDate);
+                    break;
 
+                    default:
+                    System.err.println("Unrecognized packet type "+packet.type);
+                    break;
+                }
             } else {
                 System.err.println("Invalid control packet");
             }
