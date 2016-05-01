@@ -59,7 +59,7 @@ public class Client {
             ex.printStackTrace();
         }
         
-        this.chat = new Chat(group, this.userUUID);
+        this.chat = new Chat(this, group, this.userUUID);
 
         // notify everyone in the chat that I exist
         this.beLoud();
@@ -123,11 +123,16 @@ public class Client {
     public void startMessaging() {
         // TODO: start a thread for receiving data.
         while (true) {
-            Scanner userInput = new Scanner(System.in);
-            String message = userInput.next();
+            InputStreamReader converter = new InputStreamReader(System.in);
+            BufferedReader in = new BufferedReader(converter);
+            try {
+                String message = in.readLine();
 
-            System.out.println("Sending "+message);
-            this.chat.newMessage(message);
+                this.chat.newMessage(message);
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+            
         }
     }
 

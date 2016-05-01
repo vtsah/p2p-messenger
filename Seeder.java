@@ -78,9 +78,27 @@ public class Seeder implements Runnable {
                 User card = User.unpackWithID(userID, inFromClient);
 
                 this.client.chat.makeFriend(card);
-            } else {
+            } else if (!connectedPeer.chokedByMe) {
 
-                // this is a request
+                // this is a request, and the peer requesting is unchoked by me, so reply
+
+                // format: message creator, sequence number
+                try {
+                    int messageCreator = IOHelper.getInt(inFromClient);
+                    int sequenceNumber = IOHelper.getInt(inFromClient);
+
+                    // get the message
+                    Message message = this.client.chat.getMessage(messageCreator, sequenceNumber);
+                    if (message == null) {
+                        System.err.println("Message with creator "+messageCreator+" sequence number "+sequenceNumber+" requested from client who doesn't have it");
+                    }
+
+                    // send back the message's data.
+                    outToClient.write(message.pack());
+                } catch (IOException ex) {
+                    ex.printStackTrace();
+                }
+                
             }
 
             // all done

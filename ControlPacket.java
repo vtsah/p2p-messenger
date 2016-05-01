@@ -19,6 +19,7 @@ public class ControlPacket {
         INTERESTED, // send when you are interested in a certain packet
         KEEPALIVE, // send lots of these messages to make sure peers are still alive.
         // KEEPALIVE can also be used to remind people how many packets the sender has actually sent
+        CANCEL, // to cancel an unchoke if no longer needed.
     };
 
     /**

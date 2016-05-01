@@ -110,5 +110,16 @@ public class Peer {
             return;
         }
     }
+
+    /**
+     * Keep track of whether this peer has choked or unchoked the current client,
+     * per the https://wiki.theory.org/BitTorrentSpecification
+     */
+    public boolean chokedMe = true;
+
+    /**
+     * Keep track of whether this peer is choked or unchoked from the point of view of the current client.
+     */
+    public boolean chokedByMe = true;
 }
 

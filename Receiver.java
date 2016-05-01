@@ -73,6 +73,18 @@ public class Receiver implements Runnable {
                     this.client.chat.peerHas(packet.senderID, packet.messageCreator, packet.sequenceNumber, packet.messageCreationDate);
                     break;
 
+                    case INTERESTED:
+                    this.client.chat.peerIsInterested(packet.senderID, packet.messageCreator, packet.sequenceNumber, packet.messageCreationDate);
+                    break;
+
+                    case CHOKE:
+                    this.client.chat.peerChoked(packet.senderID); // notification that no requests will be answered until unchoked.
+                    break;
+
+                    case UNCHOKE:
+                    this.client.chat.peerUnchoked(packet.senderID, packet.messageCreator, packet.sequenceNumber, packet.messageCreationDate);
+                    break;
+
                     default:
                     System.err.println("Unrecognized packet type "+packet.type);
                     break;
