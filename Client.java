@@ -119,9 +119,9 @@ public class Client {
 
     /**
      * Starts the P2P Group Chat process.
+     * Reads lines from standard input and sends them to everyone.
      */
     public void startMessaging() {
-        // TODO: start a thread for receiving data.
         while (true) {
             InputStreamReader converter = new InputStreamReader(System.in);
             BufferedReader in = new BufferedReader(converter);
