@@ -74,10 +74,11 @@ public class Seeder implements Runnable {
 
             if (connectedPeer == null) {
                 // this is a business card
-                System.out.println("Received business card with ID "+userID);
                 User card = User.unpackWithID(userID, inFromClient);
 
                 this.client.chat.makeFriend(card);
+
+                System.out.println(card.username+" has joined the chat");
             } else if (!connectedPeer.chokedByMe) {
 
                 // this is a request, and the peer requesting is unchoked by me, so reply
@@ -89,14 +90,22 @@ public class Seeder implements Runnable {
 
                     // get the message
                     Message message = this.client.chat.getMessage(messageCreator, sequenceNumber);
-                    if (message == null) {
-                        System.err.println("Message with creator "+messageCreator+" sequence number "+sequenceNumber+" requested from client who doesn't have it");
+                    if (message == null || message.data == null) {
+                        System.err.println("Message with creator "+messageCreator+" sequence number "+sequenceNumber+" requested by "+connectedPeer.user.username+" from client who doesn't have it");
+                        continue;
                     }
 
                     // send back the message's data.
                     outToClient.write(message.pack());
                 } catch (IOException ex) {
                     ex.printStackTrace();
+                }
+
+                synchronized (this.client.chat) {
+                    this.client.chat.unchokeSlotsAvailable++;
+                    synchronized (connectedPeer) {
+                        connectedPeer.chokedByMe = true;
+                    }
                 }
                 
             }

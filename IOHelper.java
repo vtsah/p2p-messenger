@@ -90,9 +90,8 @@ public class IOHelper {
         byte[] bytes = new byte[byteCount];
         int character = 0;
         int i = 0;
-        while ((character = input.read()) != -1) {
+        while (i != byteCount && (character = input.read()) != -1) {
             bytes[i++] = (byte)character;
-            if (i == byteCount) break;
         }
         while (i < byteCount) {
             bytes[i++] = 0;

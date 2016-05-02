@@ -52,6 +52,10 @@ public class Leecher implements Runnable {
         this.messageCreationDate = messageCreationDate;
     }
 
+    /**
+     * Runs thread, which connects to peer and request a message.
+     * When download is complete, decrements chat's unchokeSlotsAvailable.
+     */
     public void run() {
         ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
         // construct the request
@@ -80,7 +84,7 @@ public class Leecher implements Runnable {
         }
 
         Message receivedMessage = Message.unpack(inFromServer);
-        this.chat.have(receivedMessage);
+        this.chat.have(receivedMessage, this.peer.user.userID);
 
         try {
             socket.close();

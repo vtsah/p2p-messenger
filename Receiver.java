@@ -46,6 +46,13 @@ public class Receiver implements Runnable {
     }
 
     /**
+     * Looks up the name of a peer by ID
+     */
+    public String whatsHisName(int peerID) {
+        return this.client.chat.whatsHisName(peerID);
+    }
+
+    /**
      * Begin running the thread.
      * Starts using UDP socket for sending and receiving control messages.
      */
@@ -70,18 +77,22 @@ public class Receiver implements Runnable {
             if (packet != null) {
                 switch (packet.type) {
                     case HAVE:
+                    // System.out.println(this.whatsHisName(packet.senderID)+" has packet made by "+this.whatsHisName(packet.messageCreator)+" with sequence number "+packet.sequenceNumber);
                     this.client.chat.peerHas(packet.senderID, packet.messageCreator, packet.sequenceNumber, packet.messageCreationDate);
                     break;
 
                     case INTERESTED:
+                    // System.out.println(this.whatsHisName(packet.senderID)+" is interested in packet made by "+this.whatsHisName(packet.messageCreator)+" with sequence number "+packet.sequenceNumber);
                     this.client.chat.peerIsInterested(packet.senderID, packet.messageCreator, packet.sequenceNumber, packet.messageCreationDate);
                     break;
 
                     case CHOKE:
+                    // System.out.println(this.whatsHisName(packet.senderID)+" choked me");
                     this.client.chat.peerChoked(packet.senderID); // notification that no requests will be answered until unchoked.
                     break;
 
                     case UNCHOKE:
+                    // System.out.println(this.whatsHisName(packet.senderID)+" unchoked me");
                     this.client.chat.peerUnchoked(packet.senderID, packet.messageCreator, packet.sequenceNumber, packet.messageCreationDate);
                     break;
 

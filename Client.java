@@ -106,7 +106,7 @@ public class Client {
 
         this.userUUID = IOHelper.getInt(inFromServer);
 
-        System.out.println("UUID assigned: "+this.userUUID);
+        // System.out.println("UUID assigned: "+this.userUUID);
 
         Group group = Group.unpack(groupName, inFromServer);
 
@@ -169,7 +169,7 @@ public class Client {
         Client client = new Client(args[2], serverIP, serverPort, args[3]);
 
         // connect to chat (P2P)
-        System.out.println("Client connected to chat with ID "+client.userUUID);
+        System.out.println("Connected to chat "+client.chat.name+" with "+client.chat.peers.size()+" others");
 
         client.startMessaging();
     }

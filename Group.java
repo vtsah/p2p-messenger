@@ -41,7 +41,6 @@ public class Group {
 
         try {
             int userCount = IOHelper.getInt(input);
-            System.out.println("There are "+userCount+" users");
             for (int i = 0; i < userCount; i++) {
                 group.users.add(User.unpack(input));
             }

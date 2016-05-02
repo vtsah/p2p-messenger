@@ -90,7 +90,7 @@ public class Peer {
      * @param user The contact information to send.
      */
     public void giveBusinessCard(User user) {
-        System.out.println("Sending business card to user "+this.user.userID);
+        // System.out.println("Sending business card to "+this.user.username);
         // construct business card
         byte[] card = user.pack();
 

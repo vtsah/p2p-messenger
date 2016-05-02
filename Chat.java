@@ -179,7 +179,9 @@ public class Chat {
     }
 
     /**
-     * Stores a message in the messages data structure
+     * Stores a message in the messages data structure.
+     * Based on the message sender and sequence number.
+     * Does not assume that the message doesn't already exist or that it should go at the end.
      */
     public void storeMessage(Message message) {
         // store this message
@@ -191,10 +193,10 @@ public class Chat {
                 this.messages.put(senderKey, messagesFromSender);
             }
             // add nulls to pad, so messagesFromSender.get(message.sequenceNumber) will be message.
-            while (messagesFromSender.size() < message.sequenceNumber) {
+            while (messagesFromSender.size() <= message.sequenceNumber) {
                 messagesFromSender.add(null);
             }
-            messagesFromSender.add(message);
+            messagesFromSender.set(message.sequenceNumber, message);
         }
     }
 
@@ -210,8 +212,10 @@ public class Chat {
      * Have fully downloaded / created a new message, so now am free and to send it out.
      * store this message in the chat and publicize its existence to everyone who might care
      * In general, publicize only to people who don't already have it and only those who I might 
+     * @param message The Message I now have.
+     * @param careOf The Peer I received this message through (the id of the actual person who sent it to me)
      */
-    public void have(Message message) {
+    public void have(Message message, int careOf) {
         this.storeMessage(message);
 
         // make Control packet for HAVE
@@ -231,18 +235,18 @@ public class Chat {
 
         if (this.shouldPrintMessage(message)) {
             // who sent this?
-            Peer sender = this.checkAddressBook(message.senderID);
-
-            if (sender == null) {
-                System.err.println("Received message written by a rando");
-            }
-            // yeah, but what's his name?
-            String name = sender.user.username;
+            String sender = this.whatsHisName(message.senderID);
 
             // and what was the message again?
             String text = new String(message.data, StandardCharsets.US_ASCII);
 
-            System.out.println(name+": "+text);
+            if (message.senderID != careOf) {
+                String goBetween = this.whatsHisName(careOf);
+
+                System.out.println(sender+" (via "+goBetween+"): "+text);
+            } else {
+                System.out.println(sender+": "+text);
+            }
         }
 
         // Sending over UDP, so the HAVE message might get lost in the mail.
@@ -253,7 +257,7 @@ public class Chat {
      * A new message has been created and must be sent out
      */
     public void newMessage(String message) {
-        this.have(new Message(message.getBytes(StandardCharsets.US_ASCII), this.hostID, this.sequenceNumber++, System.currentTimeMillis()));
+        this.have(new Message(message.getBytes(StandardCharsets.US_ASCII), this.hostID, this.sequenceNumber++, System.currentTimeMillis()), this.hostID);
     }
 
     /**
@@ -278,6 +282,24 @@ public class Chat {
                 peer.chokedMe = true;
             }
         }
+    }
+
+    /**
+     * Looks up someone's name by ID number.
+     * @return The Peer's name, or "rando" if peer isn't in known peers.
+     */
+    public String whatsHisName(int userID) {
+        // hey it's me! I should know my own name.
+        if (userID == this.hostID) {
+            return this.client.user.username;
+        }
+        Peer peer = this.checkAddressBook(userID);
+        if (peer == null) {
+            // this really shouldn't happen
+            System.err.println("Couldn't find someone's name");
+            return "rando";
+        }
+        return peer.user.username;
     }
 
     /**
