@@ -16,7 +16,7 @@ public class Receiver implements Runnable {
     /**
      * If true, will print out control messages as they are received.
      */
-    public final boolean DEBUG = true;
+    public final boolean DEBUG = false;
 
     /**
      * Port for UDP control packet receiving.
