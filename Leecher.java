@@ -54,7 +54,6 @@ public class Leecher implements Runnable {
 
     /**
      * Runs thread, which connects to peer and request a message.
-     * When download is complete, decrements chat's unchokeSlotsAvailable.
      */
     public void run() {
         ByteArrayOutputStream byteStream = new ByteArrayOutputStream();

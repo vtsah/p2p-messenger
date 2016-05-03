@@ -14,6 +14,11 @@ import java.math.*;
 public class Receiver implements Runnable {
 
     /**
+     * If true, will print out control messages as they are received.
+     */
+    public final boolean DEBUG = true;
+
+    /**
      * Port for UDP control packet receiving.
      */
     public int port = 0;
@@ -77,23 +82,28 @@ public class Receiver implements Runnable {
             if (packet != null) {
                 switch (packet.type) {
                     case HAVE:
-                    // System.out.println(this.whatsHisName(packet.senderID)+" has packet made by "+this.whatsHisName(packet.messageCreator)+" with sequence number "+packet.sequenceNumber);
+                    if (DEBUG) System.out.println(this.whatsHisName(packet.senderID)+" has "+this.whatsHisName(packet.messageCreator)+"'s packet #"+packet.sequenceNumber);
                     this.client.chat.peerHas(packet.senderID, packet.messageCreator, packet.sequenceNumber, packet.messageCreationDate);
                     break;
 
                     case INTERESTED:
-                    // System.out.println(this.whatsHisName(packet.senderID)+" is interested in packet made by "+this.whatsHisName(packet.messageCreator)+" with sequence number "+packet.sequenceNumber);
+                    if (DEBUG) System.out.println(this.whatsHisName(packet.senderID)+" is interested in "+this.whatsHisName(packet.messageCreator)+"'s packet #"+packet.sequenceNumber);
                     this.client.chat.peerIsInterested(packet.senderID, packet.messageCreator, packet.sequenceNumber, packet.messageCreationDate);
                     break;
 
                     case CHOKE:
-                    // System.out.println(this.whatsHisName(packet.senderID)+" choked me");
+                    if (DEBUG) System.out.println(this.whatsHisName(packet.senderID)+" choked me");
                     this.client.chat.peerChoked(packet.senderID); // notification that no requests will be answered until unchoked.
                     break;
 
                     case UNCHOKE:
-                    // System.out.println(this.whatsHisName(packet.senderID)+" unchoked me");
+                    if (DEBUG) System.out.println(this.whatsHisName(packet.senderID)+" unchoked me");
                     this.client.chat.peerUnchoked(packet.senderID, packet.messageCreator, packet.sequenceNumber, packet.messageCreationDate);
+                    break;
+
+                    case CANCEL:
+                    if (DEBUG) System.out.println(this.whatsHisName(packet.senderID)+" cancelled unchoke request");
+                    this.client.chat.peerCanceled(packet.senderID);
                     break;
 
                     default:

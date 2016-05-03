@@ -1,5 +1,6 @@
 /**
  * Packs and unpacks control packets. All meta-communication between clients is done with control packets; messages are sent separately.
+ * Send a packet by .pack()'ing and having a Peer send the data.
  */
 
 import java.io.*;

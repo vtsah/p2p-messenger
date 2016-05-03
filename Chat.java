@@ -330,6 +330,25 @@ public class Chat {
 
                 // send back cancel
                 ControlPacket cancelPacket = ControlPacket.packetForMessage(myVersion, ControlPacket.Type.CANCEL, this.hostID);
+                peer.sendControlData(cancelPacket.pack());
+            }
+        }
+    }
+
+    /**
+     * Notification that the peer has canceled a request for unchoking.
+     * Basically, I should choke this peer.
+     */
+    public void peerCanceled(int peerID) {
+        Peer peer = this.checkAddressBook(peerID);
+        if (peer != null) {
+            synchronized (peer) {
+                if (!peer.chokedByMe) {
+                    synchronized (this) {
+                        this.unchokeSlotsAvailable++;
+                    }
+                }
+                peer.chokedByMe = true;
             }
         }
     }
