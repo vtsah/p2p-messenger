@@ -53,11 +53,17 @@ public class Server {
             String groupName = IOHelper.getString(inFromClient);
             String username = IOHelper.getString(inFromClient);
 
+            // could be from same machine, like 127.0.0.1, from behind NAT or from in front of NAT,
+            // depends on relative location of server and client.
+            // TODO: USE THIS FOR NAT
             InetAddress ip = connectionSocket.getInetAddress();
+
             int userPort = IOHelper.getInt(inFromClient);
             int dataPort = IOHelper.getInt(inFromClient);
 
-            User newUser = new User(username, ip, userPort, dataPort, nextUUID);
+            InetAddress localIP = InetAddress.getByAddress(IOHelper.getByteArray(inFromClient));
+
+            User newUser = new User(username, localIP, userPort, dataPort, nextUUID);
 
             Group currentGroup = this.groups.get(groupName);
             if (currentGroup == null) {

@@ -97,6 +97,7 @@ public class Peer {
         Socket socket;
         DataOutputStream outToServer;
         try {
+            // System.out.println("Sending business card to IP "+this.user.address);
             socket = new Socket(this.user.address, this.user.dataPort);
             outToServer = new DataOutputStream(socket.getOutputStream());
             // no input necessary, this is a one-way conversation

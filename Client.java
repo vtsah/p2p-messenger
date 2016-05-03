@@ -147,6 +147,10 @@ public class Client {
             IOHelper.writeString(this.username, byteStream);
             IOHelper.writeInt(this.receiver.port, byteStream);
             IOHelper.writeInt(this.seeder.port, byteStream);
+            // send the IP address from my point of view.
+            // This may be different from receiver IP due to NAT or if Server is running on this machine
+            IOHelper.writeByteArray(InetAddress.getLocalHost().getAddress(), byteStream);
+
         } catch (IOException ex) {
             ex.printStackTrace();
             return null;

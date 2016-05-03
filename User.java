@@ -58,9 +58,7 @@ public class User {
         try {
             IOHelper.writeInt(this.userID, byteStream);
 
-            byte[] addressBytes = this.address.getAddress();
-            IOHelper.writeInt(addressBytes.length, byteStream);
-            byteStream.write(addressBytes);
+            IOHelper.writeByteArray(this.address.getAddress(), byteStream);
 
             IOHelper.writeInt(this.port, byteStream);
             IOHelper.writeInt(this.dataPort, byteStream);
@@ -98,10 +96,7 @@ public class User {
         int port = 0;
         String username = null;
         try {
-            // IP address is n bytes
-            int ipLength = IOHelper.getInt(input);
-            byte[] ip = IOHelper.getBytes(input, ipLength);
-            ipAddress = InetAddress.getByAddress(ip);
+            ipAddress = InetAddress.getByAddress(IOHelper.getByteArray(input));
 
             port = IOHelper.getInt(input);
             dataPort = IOHelper.getInt(input);

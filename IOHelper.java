@@ -40,14 +40,22 @@ public class IOHelper {
     }
 
     /**
+     * Helper function for writing a byte array to a byte stream, preceded by the length of the byte array as an int.
+     * @param data The byte array to append to stream.
+     * @param byteStream The stream to write to.
+     */
+    public static void writeByteArray(byte[] data, ByteArrayOutputStream byteStream) throws IOException {
+        writeInt(data.length, byteStream);
+        byteStream.write(data);
+    }
+
+    /**
      * Helper function for writing a string to byte array. Appends 4-byte count followed by String in ASCII.
      * @param string The string to append to byte array.
      * @param byteStream Byte array output stream for writing
      */
     public static void writeString(String string, ByteArrayOutputStream byteStream) throws IOException {
-        byte[] stringBytes = string.getBytes(StandardCharsets.US_ASCII);
-        writeInt(stringBytes.length, byteStream);
-        byteStream.write(stringBytes);
+        writeByteArray(string.getBytes(StandardCharsets.US_ASCII), byteStream);
     }
 
     /**
@@ -69,13 +77,22 @@ public class IOHelper {
     }
 
     /**
+     * Gets the length of byte array as an integer, followed by the integer.
+     * @param input the input stream.
+     * @return byte array of length n, after reading n from input.
+     */
+    public static byte[] getByteArray(BufferedInputStream input) throws IOException {
+        int length = IOHelper.getInt(input);
+        return IOHelper.getBytes(input, length);
+    }
+
+    /**
      * Gets the length of a string as an integer, followed by the string.
      * @param input the input stream
      * @return ASCII string of length n, after reading int n from input.
      */
     public static String getString(BufferedInputStream input) throws IOException {
-        int length = IOHelper.getInt(input);
-        return new String(IOHelper.getBytes(input, length), StandardCharsets.US_ASCII);
+        return new String(IOHelper.getByteArray(input), StandardCharsets.US_ASCII);
     }
 
     /**
