@@ -15,7 +15,7 @@ public class Chat {
     /**
      * Maximum number of unchoked peers
      */
-    public final int MAX_UNCHOKE = 4;
+    public final int MAX_UNCHOKE = 3;
 
     /**
      * Identifier of the current client.
