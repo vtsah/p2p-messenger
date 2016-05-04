@@ -19,12 +19,14 @@ Then start typing in the clients' standard inputs. Each line will be distributed
 * KEEPALIVE messages between clients and with server to detect clients disconnecting.
 * Requesting of old messages, so a new peer can download all previously sent messages
     * Possibly the available messages should be sent in response to a "Business Card"
-* Break up large messages, including files, into smaller messages for real distributed p2p downloading
+* Send files
 * Resend packets like "HAVE" and "UNCHOKE" after a timeout if there is no response (possibly have a timeout on unchoke slots as well)
 * Print out messages in chronological order.
 * Make a UI for displaying Chat Transcript separate from input and in order, and for choosing file for attachment and for downloading files to given path.
 
 ### Possible additional features
 
+* End-to-end Cryptography
+* Passwords
 * Tit-for-tat: selective unchoking strategy
 * UDP punching: for breaking through NAT
