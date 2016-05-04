@@ -31,25 +31,33 @@ public class ControlPacket {
     public static ControlPacket unpack(byte[] data) {
 
         Type type;
-        int senderID, messageCreator, sequenceNumber;
-        long messageCreationDate;
+        int senderID = 0;
+        Message message = null;
 
         try {
-            ByteArrayInputStream byteStream = new ByteArrayInputStream(data);
-            BufferedInputStream input = new BufferedInputStream(byteStream);
+            BufferedInputStream input = new BufferedInputStream(new ByteArrayInputStream(data));
 
             type = Type.values()[IOHelper.getInt(input)];
-
             senderID = IOHelper.getInt(input);
-            messageCreator = IOHelper.getInt(input);
-            sequenceNumber = IOHelper.getInt(input);
-            messageCreationDate = IOHelper.getLong(input);
+
+            if (type == Type.HAVE || type == Type.INTERESTED) {
+                long date = 0;
+                int messageCreator = IOHelper.getInt(input);
+                int blockIndex = IOHelper.getInt(input);
+                int sequenceNumber = IOHelper.getInt(input);
+                
+                if (type == Type.HAVE) {
+                    date = IOHelper.getLong(input);
+                }
+                message = new Message(null, messageCreator, blockIndex, sequenceNumber, date);
+            }
+            
         } catch (IOException ex) {
             ex.printStackTrace();
             return null;
         }
 
-        return new ControlPacket(type, senderID, messageCreator, sequenceNumber, messageCreationDate);
+        return new ControlPacket(type, senderID, message);
     }
 
     /**
@@ -61,10 +69,17 @@ public class ControlPacket {
 
         IOHelper.writeInt(this.type.ordinal(), byteStream);
         IOHelper.writeInt(this.senderID, byteStream);
-        IOHelper.writeInt(this.messageCreator, byteStream);
-        IOHelper.writeInt(this.sequenceNumber, byteStream);
-        IOHelper.writeLong(this.messageCreationDate, byteStream);
 
+        if (this.type == Type.HAVE || this.type == Type.INTERESTED) {
+            IOHelper.writeInt(this.message.senderID, byteStream);
+            IOHelper.writeInt(this.message.blockIndex, byteStream);
+            IOHelper.writeInt(this.message.sequenceNumber, byteStream);
+
+            if (this.type == Type.HAVE) {
+                IOHelper.writeLong(this.message.date, byteStream);
+            }
+        }
+        
         return byteStream.toByteArray();
     }
 
@@ -74,52 +89,28 @@ public class ControlPacket {
     public Type type;
 
     /**
+     * The message in question. Depending on the type of packet, not all of the message's properties may be used.
+     * For KEEPALIVE, CANCEL, CHOKE, and UNCHOKE, the entire message is ignored; only the sender matters.
+     * The `data` field of this message is always ignored.
+     * For HAVE, every other field counts, advertising the entire message with all of its metadata.
+     * For INTERESTED, `date` is ignored.
+     */
+    public Message message;
+
+    /**
      * Identifier for the sender of the control packet
      */
     public int senderID;
 
     /**
-     * Identifier for the sender of the message in question.
-     * If senderID = 0 and messageCreator = 1 in a HAVE message,
-     * both clients 0 and 1 have the message to distribute, but the message "sender" is client 1
-     * For KEEPALIVE, senderID == messageCreator
-     */
-    public int messageCreator;
-
-    /**
-     * Sequence number for message in question.
-     * For KEEPALIVE, this is the sequence number of the last packet available from this client.
-     */
-    public int sequenceNumber;
-
-    /** 
-     * Message creation date, in Milliseconds
-     * Useful to know which one should be requested next, because they should be displayed in order.
-     */
-    public long messageCreationDate;
-
-    // possibly keep track of packet creation date?
-
-    /**
      * Make a control packet for sending
      * @param type The type of control packet, like HAVE, UNCHOKE, KEEPALIVE, etc.
      * @param senderID The UUID for the client which is sending the packet
-     * @param messageCreator The UUID for the client who made the message in question.
-     * @param sequenceNumber The sequence number of the packet in question
-     * @param messageCreationDate The Date when the message was created
+     * @param message The Message in question, with properties set as needed.
      */
-    public ControlPacket(Type type, int senderID, int messageCreator, int sequenceNumber, long messageCreationDate) {
+    public ControlPacket(Type type, int senderID, Message message) {
         this.type = type;
         this.senderID = senderID;
-        this.messageCreator = messageCreator;
-        this.sequenceNumber = sequenceNumber;
-        this.messageCreationDate = messageCreationDate;
-    }
-
-    /**
-     * Helper method for making a control packet from a message.
-     */
-    public static ControlPacket packetForMessage(Message message, Type type, int sender) {
-        return new ControlPacket(type, sender, message.senderID, message.sequenceNumber, message.date);
+        this.message = message;
     }
 }

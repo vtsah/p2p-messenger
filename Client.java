@@ -128,7 +128,7 @@ public class Client {
             try {
                 String message = in.readLine();
 
-                this.chat.newMessage(message);
+                this.chat.newBlock(message);
             } catch (IOException ex) {
                 ex.printStackTrace();
             }

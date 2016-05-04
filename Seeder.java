@@ -101,9 +101,10 @@ public class Seeder implements Runnable {
                     ex.printStackTrace();
                 }
 
-                synchronized (this.client.chat) {
-                    this.client.chat.unchokeSlotsAvailable++;
+                synchronized (this.client.chat.unchokedPeers) {
                     synchronized (connectedPeer) {
+                        this.client.chat.unchokedPeers.remove(connectedPeer);
+                    
                         connectedPeer.chokedByMe = true;
                     }
                 }

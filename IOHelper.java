@@ -101,7 +101,7 @@ public class IOHelper {
      * @param input the input stream to read from.
      * @param byteCount the number of bytes to read.
      *
-     * @return byteCount bytes, 0-padded if reached EOF
+     * @return byteCount bytes. Throws IOException if hits EOF first.
      */
     public static byte[] getBytes(BufferedInputStream input, int byteCount) throws IOException {
         byte[] bytes = new byte[byteCount];
@@ -110,8 +110,8 @@ public class IOHelper {
         while (i != byteCount && (character = input.read()) != -1) {
             bytes[i++] = (byte)character;
         }
-        while (i < byteCount) {
-            bytes[i++] = 0;
+        if (i < byteCount) {
+            throw new IOException();
         }
         return bytes;
     }

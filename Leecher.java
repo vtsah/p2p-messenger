@@ -32,30 +32,29 @@ public class Leecher implements Runnable {
     public int sequenceNumber = 0;
 
     /**
-     * When was the message first written.
-     */
-    public long messageCreationDate = 0;
-
-    /**
      * Creates leecher, preparing to request and save a message
      * @param peer Where to request the message
      * @param chat Where to put the message
      * @param messageCreater Who wrote the message
      * @param sequenceNumber Which one of his messages you want.
-     * @param messageCreationDate When the message was written.
      */
-    public Leecher(Peer peer, Chat chat, int messageCreator, int sequenceNumber, long messageCreationDate) {
+    public Leecher(Peer peer, Chat chat, int messageCreator, int sequenceNumber) {
         this.peer = peer;
         this.chat = chat;
         this.messageCreator = messageCreator;
         this.sequenceNumber = sequenceNumber;
-        this.messageCreationDate = messageCreationDate;
     }
 
     /**
      * Runs thread, which connects to peer and request a message.
      */
     public void run() {
+        synchronized (this.peer) {
+            if (this.peer.currentlyRequesting) {
+                return;
+            }
+            this.peer.currentlyRequesting = true;
+        }
         ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
         // construct the request
         // first put the current client
@@ -90,6 +89,9 @@ public class Leecher implements Runnable {
         } catch (IOException ex) {
             ex.printStackTrace();
             return;
+        }
+        synchronized (this.peer) {
+            this.peer.currentlyRequesting = false;
         }
     }
 }

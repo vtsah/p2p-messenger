@@ -66,23 +66,27 @@ public class Peer {
     }
 
     /**
-     * Have received notification that Peer has a new packet that I can request
-     * @param senderID The ID number for the message sender.
-     * @param sequenceNumber The index of the message as sent by sender.
-     * @param messageCreationDate The date in milliseconds when the message was created.
+     * Have received notification that Peer has a new packet that I can request.
+     * @param message The message in question that the peer now has.
+     * @return boolean: false if Peer already knew about packet, true if this is new information
      */
-    public void has(int senderID, int sequenceNumber, long messageCreationDate) {
+    public boolean has(Message message) {
         synchronized (this.messages) {
-            HashSet<Integer> messagesFromSender = this.messages.get(new Integer(senderID));
+            HashSet<Integer> messagesFromSender = this.messages.get(new Integer(message.senderID));
             if (messagesFromSender == null) {
                 messagesFromSender = new HashSet<Integer>();
-                this.messages.put(new Integer(senderID), messagesFromSender);
+                this.messages.put(new Integer(message.senderID), messagesFromSender);
             }
 
-            messagesFromSender.add(new Integer(sequenceNumber));
+            if (!messagesFromSender.contains(new Integer(message.sequenceNumber))) {
+                messagesFromSender.add(new Integer(message.sequenceNumber));
+                return true;
+            }
         }
 
         // TODO store and use message creation date
+
+        return false;
     }
 
     /**
@@ -122,5 +126,11 @@ public class Peer {
      * Keep track of whether this peer is choked or unchoked from the point of view of the current client.
      */
     public boolean chokedByMe = true;
+
+    /**
+     * Keep track of whether I'm currently making a request to this peer.
+     * Never make more than one request at the same time to the same peer, because they will probably be refused.
+     */
+    public boolean currentlyRequesting = false;
 }
 

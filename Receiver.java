@@ -16,7 +16,7 @@ public class Receiver implements Runnable {
     /**
      * If true, will print out control messages as they are received.
      */
-    public final boolean DEBUG = false;
+    public final boolean DEBUG = true;
 
     /**
      * Port for UDP control packet receiving.
@@ -58,6 +58,13 @@ public class Receiver implements Runnable {
     }
 
     /**
+     * Looks up who wrote the message referenced by a packet.
+     */
+    public String whoSent(ControlPacket packet) {
+        return this.whatsHisName(packet.message.senderID);
+    }
+
+    /**
      * Begin running the thread.
      * Starts using UDP socket for sending and receiving control messages.
      */
@@ -82,13 +89,13 @@ public class Receiver implements Runnable {
             if (packet != null) {
                 switch (packet.type) {
                     case HAVE:
-                    if (DEBUG) System.out.println(this.whatsHisName(packet.senderID)+" has "+this.whatsHisName(packet.messageCreator)+"'s packet #"+packet.sequenceNumber);
-                    this.client.chat.peerHas(packet.senderID, packet.messageCreator, packet.sequenceNumber, packet.messageCreationDate);
+                    if (DEBUG) System.out.println(this.whatsHisName(packet.senderID)+" has "+this.whoSent(packet)+"'s packet #"+packet.message.sequenceNumber);
+                    this.client.chat.peerHas(packet.senderID, packet.message);
                     break;
 
                     case INTERESTED:
-                    if (DEBUG) System.out.println(this.whatsHisName(packet.senderID)+" is interested in "+this.whatsHisName(packet.messageCreator)+"'s packet #"+packet.sequenceNumber);
-                    this.client.chat.peerIsInterested(packet.senderID, packet.messageCreator, packet.sequenceNumber, packet.messageCreationDate);
+                    if (DEBUG) System.out.println(this.whatsHisName(packet.senderID)+" is interested in "+this.whoSent(packet)+"'s packet #"+packet.message.sequenceNumber);
+                    this.client.chat.peerIsInterested(packet.senderID, packet.message);
                     break;
 
                     case CHOKE:
@@ -98,7 +105,7 @@ public class Receiver implements Runnable {
 
                     case UNCHOKE:
                     if (DEBUG) System.out.println(this.whatsHisName(packet.senderID)+" unchoked me");
-                    this.client.chat.peerUnchoked(packet.senderID, packet.messageCreator, packet.sequenceNumber, packet.messageCreationDate);
+                    this.client.chat.peerUnchoked(packet.senderID);
                     break;
 
                     case CANCEL:

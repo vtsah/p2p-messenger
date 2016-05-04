@@ -13,6 +13,11 @@ import java.math.*;
 public class Chat {
 
     /**
+     * Maximum number of unchoked peers
+     */
+    public final int MAX_UNCHOKE = 4;
+
+    /**
      * Identifier of the current client.
      */
     public int hostID = 0;
@@ -22,6 +27,11 @@ public class Chat {
      * Goes up by one for each message sent.
      */
     public int sequenceNumber = 0;
+
+    /**
+     * The index of blocks of data I've sent.
+     */
+    public int blockIndex = 0;
 
     /**
      * Peers currently participating in this group chat
@@ -39,11 +49,9 @@ public class Chat {
     public Client client = null;
 
     /**
-     * The number of unchoke slots open.
-     * Start off with 4. They go up and down as slots are taken and released.
-     * Should never go negative.
+     * Set of unchoked peers. This should never get bigger than 4.
      */
-    public int unchokeSlotsAvailable = 4;
+    public HashSet<Peer> unchokedPeers = new HashSet<Peer>();
 
     /**
      * Creates a group chat from the given Group.
@@ -94,11 +102,9 @@ public class Chat {
      * Notification has arrived that another client has a message.
      * Update the Peer, then possibly request the packet.
      * @param peerID ID number of peer who has the packet
-     * @param senderID ID number of person who originally wrote the message.
-     * @param sequenceNumber Index in messages written by senderID
-     * @param messageCreationDate Date in milliseconds when the message was written.
+     * @param message The message metadata in question.
      */
-    public void peerHas(int peerID, int senderID, int sequenceNumber, long messageCreationDate) {
+    public void peerHas(int peerID, Message message) {
         // find peer
         Peer peer = this.checkAddressBook(peerID);
 
@@ -108,14 +114,19 @@ public class Chat {
         }
 
         // found peer.
-        peer.has(senderID, sequenceNumber, messageCreationDate);
+        if (!peer.has(message)) {
+            // the peer already knew about this one. don't want to keep receiving these, so notify
+            ControlPacket annoyedResponse = new ControlPacket(ControlPacket.Type.HAVE, this.hostID, message);
+            peer.sendControlData(annoyedResponse.pack());
+            return;
+        }
 
         // do I want this message? should I ask for it?
-        Message myVersion = this.getMessage(senderID, sequenceNumber);
+        Message myVersion = this.getMessage(message.senderID, message.sequenceNumber);
 
         if (myVersion == null) {
             // ask for it
-            ControlPacket interest = new ControlPacket(ControlPacket.Type.INTERESTED, this.hostID, senderID, sequenceNumber, messageCreationDate);
+            ControlPacket interest = new ControlPacket(ControlPacket.Type.INTERESTED, this.hostID, message);
             peer.sendControlData(interest.pack());
         }
     }
@@ -123,11 +134,9 @@ public class Chat {
     /**
      * Someone is interested in something I have. Check if I actually have it and if I have UNCHOKE spots open.
      * @param peerID The ID for the peer who is interested
-     * @param messageCreator The ID for the original creator of the message
-     * @param sequenceNumber The sequence number of the message
-     * @param messageCreationDate For sending response, not used directly.
+     * @param messageCreator The message the peer is interested in.
      */
-    public void peerIsInterested(int peerID, int messageCreator, int sequenceNumber, long messageCreationDate) {
+    public void peerIsInterested(int peerID, Message message) {
         // find peer
         Peer peer = this.checkAddressBook(peerID);
 
@@ -136,27 +145,34 @@ public class Chat {
             return;
         }
 
+        synchronized (peer) {
+            if (!peer.chokedByMe) {
+                peer.sendControlData(new ControlPacket(ControlPacket.Type.UNCHOKE, this.hostID, null).pack());
+                return;
+            }
+        }
+
         // Do I have this message?
-        Message myVersion = this.getMessage(messageCreator, sequenceNumber);
+        Message myVersion = this.getMessage(message.senderID, message.sequenceNumber);
 
         if (myVersion == null) {
             return; // someone asked for something I don't have
         }
 
         boolean shouldUnchoke = false;
-        synchronized (this) {
-            synchronized (peer) {
-                peer.chokedByMe = (this.unchokeSlotsAvailable == 0);
-            }
-            if (this.unchokeSlotsAvailable > 0) {
-                this.unchokeSlotsAvailable--;
+        synchronized (this.unchokedPeers) {
+            if (this.unchokedPeers.size() < MAX_UNCHOKE) {
+                synchronized (peer) {
+                    peer.chokedByMe = false;
+                }
+                this.unchokedPeers.add(peer);
                 shouldUnchoke = true;
             }
         }
 
         // TODO be more picky about unchoking: tit-for-tat
 
-        ControlPacket packet = new ControlPacket(shouldUnchoke ? ControlPacket.Type.UNCHOKE : ControlPacket.Type.CHOKE, this.hostID, messageCreator, sequenceNumber, messageCreationDate);
+        ControlPacket packet = new ControlPacket(shouldUnchoke ? ControlPacket.Type.UNCHOKE : ControlPacket.Type.CHOKE, this.hostID, null);
 
         peer.sendControlData(packet.pack());
     }
@@ -219,7 +235,7 @@ public class Chat {
         this.storeMessage(message);
 
         // make Control packet for HAVE
-        ControlPacket packet = ControlPacket.packetForMessage(message, ControlPacket.Type.HAVE, this.hostID);
+        ControlPacket packet = new ControlPacket(ControlPacket.Type.HAVE, this.hostID, message);
         byte[] packetData = packet.pack();
 
         // send this packet to peers who might be interested.
@@ -254,10 +270,33 @@ public class Chat {
     }
 
     /**
-     * A new message has been created and must be sent out
+     * A new block has been written and must be sent out
      */
-    public void newMessage(String message) {
-        this.have(new Message(message.getBytes(StandardCharsets.US_ASCII), this.hostID, this.sequenceNumber++, System.currentTimeMillis()), this.hostID);
+    public void newBlock(String block) {
+        this.newBlock(block.getBytes(StandardCharsets.US_ASCII), this.blockIndex++);
+    }
+
+    /**
+     * Send out a bunch of bytes, to everyone.
+     */
+    public void newBlock(byte[] block, int blockIndex) {
+        // break up blocks into little pieces.
+
+        int pieceCount = (block.length + Message.MAX_PIECE - 1) / Message.MAX_PIECE;
+
+        for (int i = 0; i < pieceCount; i++) {
+            int startIndex = i * Message.MAX_PIECE;
+            int bytesRemaining = block.length - startIndex;
+            if (bytesRemaining > Message.MAX_PIECE) {
+                bytesRemaining = Message.MAX_PIECE;
+            }
+            byte[] piece = Arrays.copyOfRange(block, startIndex, startIndex + bytesRemaining);
+            this.newPiece(piece, blockIndex);
+        }
+    }
+
+    public void newPiece(byte[] piece, int blockIndex) {
+        this.have(new Message(piece, this.hostID, blockIndex, this.sequenceNumber++, System.currentTimeMillis()), this.hostID);
     }
 
     /**
@@ -305,31 +344,61 @@ public class Chat {
     /**
      * Notification that the peer has unchoked this client, due to a request for the specified message
      */
-    public void peerUnchoked(int peerID, int messageCreator, int sequenceNumber, long messageCreationDate) {
+    public void peerUnchoked(int peerID) {
         Peer peer = this.checkAddressBook(peerID);
         if (peer != null) {
-            synchronized (peer) {
-                peer.chokedMe = false;
-            }
-            // check if I want this one
-            Message myVersion = this.getMessage(messageCreator, sequenceNumber);
 
-            if (myVersion == null) {
+            int sequenceNumber = -1;
+            int messageCreator = -1;
+
+            synchronized (peer) {
+                if (peer.currentlyRequesting) {
+                    // don't request another.
+                    return;
+                }
+                peer.chokedMe = false;
+
+                synchronized (peer.messages) {
+
+                    // loop through peer's messages to find one I want.
+                    Iterator<Integer> peerMessageSenders = peer.messages.keySet().iterator();
+                    while (peerMessageSenders.hasNext()) {
+                        Integer peerMessageSender = peerMessageSenders.next();
+
+                        Iterator<Integer> sequenceNumbers = peer.messages.get(peerMessageSender).iterator();
+                        while (sequenceNumbers.hasNext()) {
+                            int availableSequenceNumber = sequenceNumbers.next().intValue();
+
+                            Message myVersion = this.getMessage(peerMessageSender.intValue(), availableSequenceNumber);
+
+                            // I don't have this one, so I want it.
+                            if (myVersion == null) {
+                                sequenceNumber = availableSequenceNumber;
+                                messageCreator = peerMessageSender.intValue();
+                                break;
+                            }
+                        }
+                        if (messageCreator >= 0) {
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (messageCreator >= 0) {
                 // occupy the spot for the message, so I don't try to download it twice.
-                this.storeMessage(new Message(null, messageCreator, sequenceNumber, messageCreationDate));
+                this.storeMessage(new Message(null, messageCreator, 0, sequenceNumber, 0));
 
                 // request this packet.
                 // should definitely do the request in another thread,
                 // because don't want to block the control packet thread with a TCP client
-                Leecher leecher = new Leecher(peer, this, messageCreator, sequenceNumber, messageCreationDate);
+                Leecher leecher = new Leecher(peer, this, messageCreator, sequenceNumber);
                 Thread leecherThread = new Thread(leecher);
 
                 leecherThread.start();
             } else {
-                // TODO request another from this peer, since I've been unchoked I can request any.
-
                 // send back cancel
-                ControlPacket cancelPacket = ControlPacket.packetForMessage(myVersion, ControlPacket.Type.CANCEL, this.hostID);
+                ControlPacket cancelPacket = new ControlPacket(ControlPacket.Type.CANCEL, this.hostID, null);
                 peer.sendControlData(cancelPacket.pack());
             }
         }
@@ -344,8 +413,8 @@ public class Chat {
         if (peer != null) {
             synchronized (peer) {
                 if (!peer.chokedByMe) {
-                    synchronized (this) {
-                        this.unchokeSlotsAvailable++;
+                    synchronized (this.unchokedPeers) {
+                        this.unchokedPeers.remove(peer);
                     }
                 }
                 peer.chokedByMe = true;
