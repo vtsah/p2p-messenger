@@ -342,14 +342,74 @@ public class Chat {
     }
 
     /**
+     * Send INTERESTED packets to peers who have packets I want.
+     */
+    public void beInterested() {
+        synchronized (this.peers) {
+            Iterator<Peer> peerIterator = this.peers.iterator();
+            while (peerIterator.hasNext()) {
+                Peer peer = peerIterator.next();
+                if (!peer.currentlyRequesting) {
+                    Message interestedIn = this.beJealous(peer);
+                    if (interestedIn != null) {
+                        peer.sendControlData(new ControlPacket(ControlPacket.Type.INTERESTED, this.hostID, interestedIn).pack());
+                    } else {
+                        // System.out.println("nothing to be interested in");
+                    }
+                } else {
+                    // System.out.println("currently requesting");
+                }
+            }
+        }
+    }
+
+    /**
+     * Gets a message that I want from a peer.
+     * The only important parts of the returned message are senderID and messageCreator.
+     * Returns null if peer has nothing I want.
+     */
+    public Message beJealous(Peer peer) {
+
+        synchronized (peer) {
+            peer.chokedMe = false;
+
+            synchronized (peer.messages) {
+
+                // loop through peer's messages to find one I want.
+                Iterator<Integer> peerMessageSenders = peer.messages.keySet().iterator();
+                while (peerMessageSenders.hasNext()) {
+                    Integer peerMessageSender = peerMessageSenders.next();
+                    int sender = peerMessageSender.intValue();
+
+                    Iterator<Integer> sequenceNumbers = peer.messages.get(peerMessageSender).iterator();
+                    // System.out.println("start");
+                    while (sequenceNumbers.hasNext()) {
+                        int availableSequenceNumber = sequenceNumbers.next().intValue();
+
+                        Message myVersion = this.getMessage(sender, availableSequenceNumber);
+
+                        // I don't have this one, so I want it.
+                        if (myVersion == null) {
+                            int sequenceNumber = availableSequenceNumber;
+                            int messageCreator = sender;
+                            return new Message(null, messageCreator, 0, sequenceNumber, 0);
+                        } else {
+                            // System.out.println("Already have sender "+sender+" sequence number "+availableSequenceNumber);
+                        }
+                    }
+                    // System.out.println("end");
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
      * Notification that the peer has unchoked this client, due to a request for the specified message
      */
     public void peerUnchoked(int peerID) {
         Peer peer = this.checkAddressBook(peerID);
         if (peer != null) {
-
-            int sequenceNumber = -1;
-            int messageCreator = -1;
 
             synchronized (peer) {
                 if (peer.currentlyRequesting) {
@@ -357,42 +417,24 @@ public class Chat {
                     return;
                 }
                 peer.chokedMe = false;
-
-                synchronized (peer.messages) {
-
-                    // loop through peer's messages to find one I want.
-                    Iterator<Integer> peerMessageSenders = peer.messages.keySet().iterator();
-                    while (peerMessageSenders.hasNext()) {
-                        Integer peerMessageSender = peerMessageSenders.next();
-
-                        Iterator<Integer> sequenceNumbers = peer.messages.get(peerMessageSender).iterator();
-                        while (sequenceNumbers.hasNext()) {
-                            int availableSequenceNumber = sequenceNumbers.next().intValue();
-
-                            Message myVersion = this.getMessage(peerMessageSender.intValue(), availableSequenceNumber);
-
-                            // I don't have this one, so I want it.
-                            if (myVersion == null) {
-                                sequenceNumber = availableSequenceNumber;
-                                messageCreator = peerMessageSender.intValue();
-                                break;
-                            }
-                        }
-                        if (messageCreator >= 0) {
-                            break;
-                        }
-                    }
-                }
             }
 
-            if (messageCreator >= 0) {
+            Message toRequest = this.beJealous(peer);
+
+            if (toRequest != null) {
+                synchronized (peer) {
+                    if (peer.currentlyRequesting) {
+                        return;
+                    }
+                    peer.currentlyRequesting = true;
+                }
                 // occupy the spot for the message, so I don't try to download it twice.
-                this.storeMessage(new Message(null, messageCreator, 0, sequenceNumber, 0));
+                this.storeMessage(toRequest);
 
                 // request this packet.
                 // should definitely do the request in another thread,
                 // because don't want to block the control packet thread with a TCP client
-                Leecher leecher = new Leecher(peer, this, messageCreator, sequenceNumber);
+                Leecher leecher = new Leecher(peer, this, toRequest.senderID, toRequest.sequenceNumber);
                 Thread leecherThread = new Thread(leecher);
 
                 leecherThread.start();

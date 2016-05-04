@@ -42,11 +42,12 @@ public class ControlPacket {
 
             if (type == Type.HAVE || type == Type.INTERESTED) {
                 long date = 0;
+                int blockIndex = 0;
                 int messageCreator = IOHelper.getInt(input);
-                int blockIndex = IOHelper.getInt(input);
                 int sequenceNumber = IOHelper.getInt(input);
                 
                 if (type == Type.HAVE) {
+                    blockIndex = IOHelper.getInt(input);
                     date = IOHelper.getLong(input);
                 }
                 message = new Message(null, messageCreator, blockIndex, sequenceNumber, date);
@@ -72,10 +73,10 @@ public class ControlPacket {
 
         if (this.type == Type.HAVE || this.type == Type.INTERESTED) {
             IOHelper.writeInt(this.message.senderID, byteStream);
-            IOHelper.writeInt(this.message.blockIndex, byteStream);
             IOHelper.writeInt(this.message.sequenceNumber, byteStream);
 
             if (this.type == Type.HAVE) {
+                IOHelper.writeInt(this.message.blockIndex, byteStream);
                 IOHelper.writeLong(this.message.date, byteStream);
             }
         }
@@ -93,7 +94,7 @@ public class ControlPacket {
      * For KEEPALIVE, CANCEL, CHOKE, and UNCHOKE, the entire message is ignored; only the sender matters.
      * The `data` field of this message is always ignored.
      * For HAVE, every other field counts, advertising the entire message with all of its metadata.
-     * For INTERESTED, `date` is ignored.
+     * For INTERESTED, `date` and `blockIndex` are ignored.
      */
     public Message message;
 

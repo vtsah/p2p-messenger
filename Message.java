@@ -15,7 +15,7 @@ public class Message {
     /**
      * Defines the maximum size of a "Piece", in bytes.
      */
-    public static final int MAX_PIECE = 100;
+    public static final int MAX_PIECE = 5;
 
     /**
      * Data sent in message (probably ASCII representation of a string, but maybe part of attachment)

@@ -109,6 +109,8 @@ public class Seeder implements Runnable {
                     }
                 }
                 
+            } else {
+                System.err.println("Request from choked peer "+this.client.chat.whatsHisName(userID));
             }
 
             // all done
