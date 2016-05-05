@@ -12,6 +12,11 @@ import java.math.*;
 
 public class Message {
 
+    public enum Type {
+        FILE,
+        TEXT
+    };
+
     /**
      * Defines the maximum size of a "Piece", in bytes.
      */
