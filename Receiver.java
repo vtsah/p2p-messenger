@@ -73,7 +73,7 @@ public class Receiver implements Runnable {
         // Processing loop.
         while (true) {
             
-            // Create a datagram packet to hold incomming UDP packet.
+            // Create a datagram packet to hold incoming UDP packet.
             DatagramPacket request = new DatagramPacket(new byte[1024], 1024);
             
             try {
