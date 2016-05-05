@@ -291,12 +291,13 @@ public class Chat {
                 bytesRemaining = Message.MAX_PIECE;
             }
             byte[] piece = Arrays.copyOfRange(block, startIndex, startIndex + bytesRemaining);
-            this.newPiece(piece, blockIndex);
+            this.newPiece(piece, blockIndex, pieceCount);
         }
     }
 
-    public void newPiece(byte[] piece, int blockIndex) {
-        this.have(new Message(piece, this.hostID, blockIndex, this.sequenceNumber++, System.currentTimeMillis()), this.hostID);
+    public void newPiece(byte[] piece, int blockIndex, int pieceCount) {
+        this.have(new Message(piece, this.hostID, blockIndex, pieceCount, 
+            this.sequenceNumber++, System.currentTimeMillis()), this.hostID);
     }
 
     /**
@@ -392,7 +393,7 @@ public class Chat {
                         if (myVersion == null) {
                             int sequenceNumber = availableSequenceNumber;
                             int messageCreator = sender;
-                            return new Message(null, messageCreator, 0, sequenceNumber, 0);
+                            return new Message(null, messageCreator, 0, 0, sequenceNumber, 0);
                         } else {
                             // System.out.println("Already have sender "+sender+" sequence number "+availableSequenceNumber);
                         }

@@ -50,7 +50,7 @@ public class ControlPacket {
                     blockIndex = IOHelper.getInt(input);
                     date = IOHelper.getLong(input);
                 }
-                message = new Message(null, messageCreator, blockIndex, sequenceNumber, date);
+                message = new Message(null, messageCreator, blockIndex, 0, sequenceNumber, date);
             }
             
         } catch (IOException ex) {
@@ -92,7 +92,7 @@ public class ControlPacket {
     /**
      * The message in question. Depending on the type of packet, not all of the message's properties may be used.
      * For KEEPALIVE, CANCEL, CHOKE, and UNCHOKE, the entire message is ignored; only the sender matters.
-     * The `data` field of this message is always ignored.
+     * The `data` and 'blockSize' fields of this message are always ignored.
      * For HAVE, every other field counts, advertising the entire message with all of its metadata.
      * For INTERESTED, `date` and `blockIndex` are ignored.
      */
