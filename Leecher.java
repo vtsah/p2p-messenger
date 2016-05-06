@@ -49,6 +49,17 @@ public class Leecher implements Runnable {
      * Runs thread, which connects to peer and request a message.
      */
     public void run() {
+
+        // wait till unchoked to make requests
+        while(true){
+            synchronized (this.peer) {
+                if(this.peer.chokedMe)
+                    continue;
+                else
+                    break;
+            }
+        }
+
         ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
         // construct the request
         // first put the current client
@@ -86,6 +97,7 @@ public class Leecher implements Runnable {
         }
         synchronized (this.peer) {
             this.peer.currentlyRequesting = false;
+            this.peer.chokedMe = true;
         }
         this.chat.beInterested();
     }
