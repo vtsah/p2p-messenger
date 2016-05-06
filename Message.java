@@ -18,6 +18,11 @@ public class Message {
     };
 
     /**
+     * Is this message part of a text message or a file? Default to text.
+     */
+    public Type type = Type.TEXT;
+
+    /**
      * Defines the maximum size of a "Piece", in bytes.
      */
     public static final int MAX_PIECE = 5;
@@ -61,7 +66,8 @@ public class Message {
      * @param senderID The unique identifier of the sending User.
      * @param sequenceNumber The index of the message as sent by the sender.
      */
-    public Message(byte[] data, int senderID, int blockIndex, int blockSize, int sequenceNumber, long date) {
+    public Message(Type type, byte[] data, int senderID, int blockIndex, int blockSize, int sequenceNumber, long date) {
+        this.type = type;
         this.data = data;
         this.senderID = senderID;
         this.blockIndex = blockIndex;
@@ -77,6 +83,7 @@ public class Message {
         ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
 
         try {
+            IOHelper.writeInt(this.type.ordinal(), byteStream);
             IOHelper.writeByteArray(this.data, byteStream);
             IOHelper.writeInt(this.senderID, byteStream);
             IOHelper.writeInt(this.blockIndex, byteStream);
@@ -97,8 +104,10 @@ public class Message {
     public static Message unpack(BufferedInputStream input) {
         byte[] data = null;
         int senderID, blockIndex, blockSize, sequenceNumber;
+        Type type;
         long date;
         try {
+            type = Type.values()[IOHelper.getInt(input)];
             data = IOHelper.getByteArray(input);
             senderID = IOHelper.getInt(input);
             blockIndex = IOHelper.getInt(input);
@@ -109,6 +118,6 @@ public class Message {
             ex.printStackTrace();
             return null;
         }
-        return new Message(data, senderID, blockIndex, blockSize, sequenceNumber, date);
+        return new Message(type, data, senderID, blockIndex, blockSize, sequenceNumber, date);
     }
 }

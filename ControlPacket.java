@@ -50,7 +50,7 @@ public class ControlPacket {
                     blockIndex = IOHelper.getInt(input);
                     date = IOHelper.getLong(input);
                 }
-                message = new Message(null, messageCreator, blockIndex, 0, sequenceNumber, date);
+                message = new Message(null, null, messageCreator, blockIndex, 0, sequenceNumber, date);
             }
             
         } catch (IOException ex) {

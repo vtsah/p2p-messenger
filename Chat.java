@@ -273,13 +273,13 @@ public class Chat {
      * A new block has been written and must be sent out
      */
     public void newBlock(String block) {
-        this.newBlock(block.getBytes(StandardCharsets.US_ASCII), this.blockIndex++);
+        this.newBlock(Message.Type.TEXT, block.getBytes(StandardCharsets.US_ASCII), this.blockIndex++);
     }
 
     /**
      * Send out a bunch of bytes, to everyone.
      */
-    public void newBlock(byte[] block, int blockIndex) {
+    public void newBlock(Message.Type type, byte[] block, int blockIndex) {
         // break up blocks into little pieces.
 
         int pieceCount = (block.length + Message.MAX_PIECE - 1) / Message.MAX_PIECE;
@@ -291,12 +291,12 @@ public class Chat {
                 bytesRemaining = Message.MAX_PIECE;
             }
             byte[] piece = Arrays.copyOfRange(block, startIndex, startIndex + bytesRemaining);
-            this.newPiece(piece, blockIndex, pieceCount);
+            this.newPiece(type, piece, blockIndex, pieceCount);
         }
     }
 
-    public void newPiece(byte[] piece, int blockIndex, int pieceCount) {
-        this.have(new Message(piece, this.hostID, blockIndex, pieceCount, 
+    public void newPiece(Message.Type type, byte[] piece, int blockIndex, int pieceCount) {
+        this.have(new Message(type, piece, this.hostID, blockIndex, pieceCount, 
             this.sequenceNumber++, System.currentTimeMillis()), this.hostID);
     }
 
@@ -393,7 +393,7 @@ public class Chat {
                         if (myVersion == null) {
                             int sequenceNumber = availableSequenceNumber;
                             int messageCreator = sender;
-                            return new Message(null, messageCreator, 0, 0, sequenceNumber, 0);
+                            return new Message(null, null, messageCreator, 0, 0, sequenceNumber, 0);
                         } else {
                             // System.out.println("Already have sender "+sender+" sequence number "+availableSequenceNumber);
                         }

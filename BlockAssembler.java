@@ -1,5 +1,7 @@
 import java.util.*;
+import java.util.concurrent.*;
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 
 /**
  * A utility class used for assembling many partially-formed blocks.
@@ -17,6 +19,7 @@ public class BlockAssembler {
 
     /**
      * Store this message
+     *
      * @param message The message to store
      * @return Is the block pertaining to this message complete?
      */
@@ -24,7 +27,7 @@ public class BlockAssembler {
         BlockBuilder bb = getBlockBuilder(message.senderID, message.blockIndex);
 
         // this may be the first message in this block
-        if(bb = null){
+        if(bb == null){
             bb = new BlockBuilder(message.blockSize);
             blocks.put(new IncompleteMessageTuple(message.senderID, message.blockIndex), bb);
         }
@@ -37,14 +40,9 @@ public class BlockAssembler {
     /**
      * Is the block associated with this message complete?
      *
-     * @param message The message whose associated block should be checked
-     */
-    public boolean isBlockComplete(Message message){
-        return isBlockComplete(message.senderID, message.blockIndex);
-    }
-
-    /**
-     * @see BlockAssembler#isBlockComplete(Message)
+     * @param senderID the sender of the message
+     * @param blockIndex the block to retrieve binary from
+     * @return yes if the block is complete
      */
     public boolean isBlockComplete(int senderID, int blockIndex){
         BlockBuilder bb = getBlockBuilder(senderID, blockIndex);
@@ -58,15 +56,9 @@ public class BlockAssembler {
     /**
      * Get the binary associated with this message's block
      * 
-     * @param message the message to get binary from
+     * @param senderID the sender of the message
+     * @param blockIndex the block to retrieve binary from
      * @return the binary representation of this message's block
-     */
-    public byte[] getBinary(Message message){
-        return getBinary(message.senderID, message.blockIndex);
-    }
-
-    /**
-     * @see BlockAssembler#getBinary(Message)
      */
     public byte[] getBinary(int senderID, int blockIndex){
         BlockBuilder bb = getBlockBuilder(senderID, blockIndex);
@@ -75,6 +67,23 @@ public class BlockAssembler {
             return null;
 
         return bb.getBinary();
+    }
+
+
+    /**
+     * Get the text (ASCII) associated with this message's block
+     * 
+     * @param senderID the sender of the message
+     * @param blockIndex the block to retrieve text from
+     * @return the text representation of this message's block
+     */
+    public String getText(int senderID, int blockIndex){
+        BlockBuilder bb = getBlockBuilder(senderID, blockIndex);
+
+        if(bb == null)
+            return null;
+
+        return bb.getText();
     }
 
     private BlockBuilder getBlockBuilder(int senderID, int blockIndex){
@@ -108,7 +117,7 @@ class IncompleteMessageTuple{
 
     @Override
     public boolean equals(Object o){
-        if (o !instanceof IncompleteMessageTuple) 
+        if (!(o instanceof IncompleteMessageTuple))
             return false;
         
         IncompleteMessageTuple toCompare = (IncompleteMessageTuple) o;
@@ -167,7 +176,8 @@ class BlockBuilder {
     public byte[] getBinary(){
 
         ByteArrayOutputStream os = new ByteArrayOutputStream();
-        for (Message m : pieces.entrySet()) {
+        for (Map.Entry<Integer, Message> entry : pieces.entrySet()) {
+            Message m = (Message) entry.getValue();
             if(m.data == null)
                 continue;
 
@@ -192,10 +202,10 @@ class BlockBuilder {
     }
 
     public boolean isText(){
-        return this.blockType = Message.Type.TEXT;
+        return this.blockType == Message.Type.TEXT;
     }
 
     public boolean isAFile(){
-        return this.blockType = Message.Type.FILE;
+        return this.blockType == Message.Type.FILE;
     }
 }
