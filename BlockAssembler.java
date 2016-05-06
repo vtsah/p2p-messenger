@@ -86,6 +86,16 @@ public class BlockAssembler {
         return bb.getText();
     }
 
+    /**
+     * Remove a block from storage.
+     *
+     * @param senderID The sender of the block to remove
+     * @param blockIndex The index of the block to remove
+     */
+    public void removeBlock(int senderID, int blockIndex){
+        blocks.remove(new IncompleteMessageTuple(senderID, blockIndex));
+    }
+
     private BlockBuilder getBlockBuilder(int senderID, int blockIndex){
         IncompleteMessageTuple key = new IncompleteMessageTuple(senderID, blockIndex);
         return blocks.get(key);

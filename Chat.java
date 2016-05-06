@@ -79,6 +79,13 @@ public class Chat {
     private HashMap<Integer, ArrayList<Message>> messages = new HashMap<Integer, ArrayList<Message>>();
 
     /**
+     * A class used for assembling blocks as they come in. The class itself can either
+     * be synchronized (using a concurrent HashMap) or un-sync'ed.
+     */
+    private BlockAssembler blockAssembler = new BlockAssembler(true);
+
+
+    /**
      * Searches for the peer with requested ID
      * @param peerID The identifying number for requested peer.
      * @return The Peer with this peerID, or null if that peer doesn't exist
@@ -198,6 +205,8 @@ public class Chat {
      * Stores a message in the messages data structure.
      * Based on the message sender and sequence number.
      * Does not assume that the message doesn't already exist or that it should go at the end.
+     * 
+     * @param message The message to store
      */
     public void storeMessage(Message message) {
         // store this message
@@ -233,6 +242,7 @@ public class Chat {
      */
     public void have(Message message, int careOf) {
         this.storeMessage(message);
+        blockAssembler.storeMessage(message);
 
         // make Control packet for HAVE
         ControlPacket packet = new ControlPacket(ControlPacket.Type.HAVE, this.hostID, message);
@@ -249,12 +259,12 @@ public class Chat {
             }
         }
 
-        if (this.shouldPrintMessage(message)) {
+        if (this.shouldPrintMessage(message) && blockAssembler.isBlockComplete(message.senderID, message.blockIndex)) {
             // who sent this?
             String sender = this.whatsHisName(message.senderID);
 
             // and what was the message again?
-            String text = new String(message.data, StandardCharsets.US_ASCII);
+            String text = blockAssembler.getText(message.senderID, message.blockIndex);
 
             if (message.senderID != careOf) {
                 String goBetween = this.whatsHisName(careOf);
@@ -263,6 +273,9 @@ public class Chat {
             } else {
                 System.out.println(sender+": "+text);
             }
+
+            // we are no longer "building" this block so remove it from assembler
+            blockAssembler.removeBlock(message.senderID, message.blockIndex);
         }
 
         // Sending over UDP, so the HAVE message might get lost in the mail.
@@ -393,7 +406,7 @@ public class Chat {
                         if (myVersion == null) {
                             int sequenceNumber = availableSequenceNumber;
                             int messageCreator = sender;
-                            return new Message(null, null, messageCreator, 0, 0, sequenceNumber, 0);
+                            return new Message(null, null, messageCreator, 0, 666, sequenceNumber, 0);
                         } else {
                             // System.out.println("Already have sender "+sender+" sequence number "+availableSequenceNumber);
                         }
