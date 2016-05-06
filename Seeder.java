@@ -79,45 +79,50 @@ public class Seeder implements Runnable {
                 this.client.chat.makeFriend(card);
 
                 System.out.println(card.username+" has joined the chat");
-            } else if (!connectedPeer.chokedByMe) {
-
-                // this is a request, and the peer requesting is unchoked by me, so reply
-
-                // format: message creator, sequence number
-                try {
-                    int messageCreator = IOHelper.getInt(inFromClient);
-                    int sequenceNumber = IOHelper.getInt(inFromClient);
-
-                    // get the message
-                    Message message = this.client.chat.getMessage(messageCreator, sequenceNumber);
-                    if (message == null || message.data == null) {
-                        System.err.println("Message with creator "+messageCreator+" sequence number "+sequenceNumber+" requested by "+connectedPeer.user.username+" from client who doesn't have it");
-                        continue;
-                    }
-
-                    // send back the message's data.
-                    byte[] binary = message.pack();
-                    try{
-                        Message.unpack(new BufferedInputStream(new ByteArrayInputStream(binary)));
-                    }catch(Exception e){
-                        System.err.println("Seeder: I sent a corrupted message: " + new String(message.data));
-                    }
-                    outToClient.write(message.pack());
-                } catch (IOException ex) {
-                    ex.printStackTrace();
-                }
-
-                synchronized (this.client.chat.unchokedPeers) {
-                    synchronized (connectedPeer) {
-                        this.client.chat.unchokedPeers.remove(connectedPeer);
-                    
-                        connectedPeer.chokedByMe = true;
-                    }
-                }
-                
             } else {
-                System.err.println("Request from choked peer "+this.client.chat.whatsHisName(userID));
+                synchronized (connectedPeer) {
+                    if (!connectedPeer.chokedByMe) {
+
+                        // this is a request, and the peer requesting is unchoked by me, so reply
+
+                        // format: message creator, sequence number
+                        try {
+                            int messageCreator = IOHelper.getInt(inFromClient);
+                            int sequenceNumber = IOHelper.getInt(inFromClient);
+
+                            // get the message
+                            Message message = this.client.chat.getMessage(messageCreator, sequenceNumber);
+                            if (message == null || message.data == null) {
+                                System.err.println("Message with creator "+messageCreator+" sequence number "+sequenceNumber+" requested by "+connectedPeer.user.username+" from client who doesn't have it");
+                                continue;
+                            }
+
+                            // send back the message's data.
+                            byte[] binary = message.pack();
+                            try{
+                                Message.unpack(new BufferedInputStream(new ByteArrayInputStream(binary)));
+                            }catch(Exception e){
+                                System.err.println("Seeder: I sent a corrupted message: " + new String(message.data));
+                            }
+                            outToClient.write(message.pack());
+                        } catch (IOException ex) {
+                            ex.printStackTrace();
+                        }
+
+                        synchronized (this.client.chat.unchokedPeers) {
+                            synchronized (connectedPeer) {
+                                this.client.chat.unchokedPeers.remove(connectedPeer);
+                            
+                                connectedPeer.chokedByMe = true;
+                            }
+                        }
+                        
+                    } else {
+                        System.err.println("Request from choked peer "+this.client.chat.whatsHisName(userID));
+                    }
+                }
             }
+                
 
             // all done
             try {
