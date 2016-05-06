@@ -30,6 +30,13 @@ public class Validation {
         return crc;
     }
 
+    private static long padCRC(long crc) {
+        for (int i = 0; i < CRC_N; i++) {
+            crc = appendBitToCRC(crc, false);
+        }
+        return crc;
+    }
+
     /**
      * Appends an byte to a CRC.
      */
@@ -67,6 +74,7 @@ public class Validation {
         for (int i = 0; i < data.length; i++) {
             crc = appendByteToCRC(crc, data[i]);
         }
+        crc = padCRC(crc);
         return crc;
     }
 
