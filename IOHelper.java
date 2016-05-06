@@ -111,6 +111,7 @@ public class IOHelper {
             bytes[i++] = (byte)character;
         }
         if (i < byteCount) {
+            System.err.println("Bytes read, bytes supposed to read: " + i + ", " + byteCount);
             throw new IOException();
         }
         return bytes;

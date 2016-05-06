@@ -283,10 +283,17 @@ public class Chat {
     }
 
     /**
-     * A new block has been written and must be sent out
+     * A new block (text) has been written and must be sent out
      */
     public void newBlock(String block) {
         this.newBlock(Message.Type.TEXT, block.getBytes(StandardCharsets.US_ASCII), this.blockIndex++);
+    }
+
+    /**
+     * A new block (file/binary) has been written and must be sent out
+     */
+    public void newBlock(byte [] block) {
+        this.newBlock(Message.Type.FILE, block, this.blockIndex++);
     }
 
     /**
@@ -452,6 +459,12 @@ public class Chat {
                 Thread leecherThread = new Thread(leecher);
 
                 leecherThread.start();
+
+                try{
+                    leecherThread.join();
+                }catch(Exception e){
+                    e.printStackTrace();
+                }
             } else {
                 // send back cancel
                 ControlPacket cancelPacket = new ControlPacket(ControlPacket.Type.CANCEL, this.hostID, null);

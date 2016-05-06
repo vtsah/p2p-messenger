@@ -96,6 +96,12 @@ public class Seeder implements Runnable {
                     }
 
                     // send back the message's data.
+                    byte[] binary = message.pack();
+                    try{
+                        Message.unpack(new BufferedInputStream(new ByteArrayInputStream(binary)));
+                    }catch(Exception e){
+                        System.err.println("Seeder: I sent a corrupted message: " + new String(message.data));
+                    }
                     outToClient.write(message.pack());
                 } catch (IOException ex) {
                     ex.printStackTrace();

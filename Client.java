@@ -128,7 +128,12 @@ public class Client {
             try {
                 String message = in.readLine();
 
-                this.chat.newBlock(message);
+                if(FileSendingUtil.userWantsToSendFile(message)){
+                    FileSendingUtil fileSender = new FileSendingUtil(this.chat);
+                    fileSender.handleSendingFile(message);
+                }else{
+                    this.chat.newBlock(message);
+                }
             } catch (IOException ex) {
                 ex.printStackTrace();
             }
