@@ -241,6 +241,8 @@ public class Chat {
      * @param careOf The Peer I received this message through (the id of the actual person who sent it to me)
      */
     public void have(Message message, int careOf) {
+        System.out.println("I have the message with sender, sequence number " 
+            + whatsHisName(message.senderID)  + ", "+ message.sequenceNumber);
         this.storeMessage(message);
         blockAssembler.storeMessage(message);
 
@@ -276,6 +278,10 @@ public class Chat {
 
             // we are no longer "building" this block so remove it from assembler
             blockAssembler.removeBlock(message.senderID, message.blockIndex);
+        }else{
+            System.out.println("PROGRESS on block " + message.blockIndex 
+                + ", sender " +this.whatsHisName(message.senderID) 
+                + ": " + blockAssembler.getBlockProgress(message.senderID, message.blockIndex));
         }
 
         // Sending over UDP, so the HAVE message might get lost in the mail.
@@ -303,7 +309,7 @@ public class Chat {
         // break up blocks into little pieces.
 
         int pieceCount = (block.length + Message.MAX_PIECE - 1) / Message.MAX_PIECE;
-
+        int firstSeq = this.sequenceNumber;
         for (int i = 0; i < pieceCount; i++) {
             int startIndex = i * Message.MAX_PIECE;
             int bytesRemaining = block.length - startIndex;
@@ -311,12 +317,12 @@ public class Chat {
                 bytesRemaining = Message.MAX_PIECE;
             }
             byte[] piece = Arrays.copyOfRange(block, startIndex, startIndex + bytesRemaining);
-            this.newPiece(type, piece, blockIndex, pieceCount);
+            this.newPiece(type, piece, blockIndex, pieceCount, firstSeq);
         }
     }
 
-    public void newPiece(Message.Type type, byte[] piece, int blockIndex, int pieceCount) {
-        this.have(new Message(type, piece, this.hostID, blockIndex, pieceCount, 
+    public void newPiece(Message.Type type, byte[] piece, int blockIndex, int pieceCount, int blockOffset) {
+        this.have(new Message(type, piece, this.hostID, blockIndex, blockOffset, pieceCount, 
             this.sequenceNumber++, System.currentTimeMillis()), this.hostID);
     }
 
@@ -413,7 +419,7 @@ public class Chat {
                         if (myVersion == null) {
                             int sequenceNumber = availableSequenceNumber;
                             int messageCreator = sender;
-                            return new Message(null, null, messageCreator, 0, 666, sequenceNumber, 0);
+                            return new Message(null, null, messageCreator, 0, 0, 0, sequenceNumber, 0);
                         } else {
                             // System.out.println("Already have sender "+sender+" sequence number "+availableSequenceNumber);
                         }
@@ -422,7 +428,9 @@ public class Chat {
                 }
             }
         }
-        return null;
+
+        // couldn't find one in peer.messages, look for one in blockAssembler
+        return blockAssembler.getNeededMessage();
     }
 
     /**
@@ -443,32 +451,41 @@ public class Chat {
             Message toRequest = this.beJealous(peer);
 
             if (toRequest != null) {
-                synchronized (peer) {
-                    if (peer.currentlyRequesting) {
-                        return;
-                    }
-                    peer.currentlyRequesting = true;
-                }
-                // occupy the spot for the message, so I don't try to download it twice.
-                this.storeMessage(toRequest);
+                // synchronized (peer) {
+                //     if (peer.currentlyRequesting) {
+                //         return;
+                //     }
+                //     peer.currentlyRequesting = true;
+                // }
+                // // occupy the spot for the message, so I don't try to download it twice.
+                // this.storeMessage(toRequest);
 
-                // request this packet.
-                // should definitely do the request in another thread,
-                // because don't want to block the control packet thread with a TCP client
-                Leecher leecher = new Leecher(peer, this, toRequest.senderID, toRequest.sequenceNumber);
-                Thread leecherThread = new Thread(leecher);
+                // // request this packet.
+                // // should definitely do the request in another thread,
+                // // because don't want to block the control packet thread with a TCP client
+                // Leecher leecher = new Leecher(peer, this, toRequest.senderID, toRequest.sequenceNumber);
+                // Thread leecherThread = new Thread(leecher);
 
-                leecherThread.start();
+                // leecherThread.start();
 
-                try{
-                    leecherThread.join();
-                }catch(Exception e){
-                    e.printStackTrace();
-                }
+                // try{
+                //     leecherThread.join();
+                // }catch(Exception e){
+                //     e.printStackTrace();
+                // }
+
+                // TODO store this message temporarily and start a callback (efficiently)
+
+                peer.sendControlData(new ControlPacket(ControlPacket.Type.REQUEST, this.hostID, toRequest).pack());
+                if(messages.get(toRequest.senderID) != null)
+                    System.out.println("Sending request for " + whatsHisName(toRequest.senderID) 
+                        + ", " + toRequest.sequenceNumber + "; I have " +messages.get(toRequest.senderID).size());
+
             } else {
                 // send back cancel
                 ControlPacket cancelPacket = new ControlPacket(ControlPacket.Type.CANCEL, this.hostID, null);
                 peer.sendControlData(cancelPacket.pack());
+                System.out.println("Sending Cancellation; I have " + messages.get(peerID).size());
             }
         }
     }
@@ -487,6 +504,47 @@ public class Chat {
                     }
                 }
                 peer.chokedByMe = true;
+            }
+        }
+    }
+
+    /**
+     * A peer requested I send a message. This is different
+     * than <emph>Interested</emph>; to make a request you
+     * must be unchoked.</br>
+     * Basically, I should send this message over ASAP
+     */
+    public void peerRequestedMessage(int peerID, Message message){
+        Peer connectedPeer = checkAddressBook(peerID);
+        if (connectedPeer == null) {
+            System.err.println("Got a request from an unknown user; ignoring it");
+            return;
+        }
+
+        synchronized (connectedPeer) {
+            if (!connectedPeer.chokedByMe) {
+                int messageCreator = message.senderID;
+                int sequenceNumber = message.sequenceNumber;
+
+                // get the message
+                Message messageToSend = this.client.chat.getMessage(messageCreator, sequenceNumber);
+                if (messageToSend == null || messageToSend.data == null) {
+                    System.err.println("Message with creator "+messageCreator+" sequence number "+sequenceNumber+" requested by "+connectedPeer.user.username+" from client who doesn't have it");
+                    return;                
+                }
+
+                // send back the message's data.
+                connectedPeer.sendControlData(new ControlPacket(ControlPacket.Type.DATA, this.hostID, messageToSend).pack());
+
+                synchronized (this.client.chat.unchokedPeers) {
+                    synchronized (connectedPeer) {
+                        this.client.chat.unchokedPeers.remove(connectedPeer);
+                        connectedPeer.chokedByMe = true;
+                    }
+                }
+                
+            } else {
+                System.err.println("Request from choked peer "+whatsHisName(peerID));
             }
         }
     }

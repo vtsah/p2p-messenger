@@ -60,6 +60,7 @@ public class Peer {
 
         try {
             socket.send(packet);
+            socket.close();
         } catch (IOException e) {
             e.printStackTrace();
         }

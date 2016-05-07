@@ -112,7 +112,6 @@ public class Seeder implements Runnable {
                         synchronized (this.client.chat.unchokedPeers) {
                             synchronized (connectedPeer) {
                                 this.client.chat.unchokedPeers.remove(connectedPeer);
-                            
                                 connectedPeer.chokedByMe = true;
                             }
                         }

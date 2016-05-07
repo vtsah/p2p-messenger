@@ -18,6 +18,23 @@ public class BlockAssembler {
     }
 
     /**
+     * This works just like Chat#beJealous(). Returns a message that is needed, or
+     * null if none are needed.
+     */
+    public Message getNeededMessage(){
+        for(Map.Entry<IncompleteMessageTuple, BlockBuilder> entry : blocks.entrySet()){
+            BlockBuilder bb = entry.getValue();
+
+            if(bb.isFull())
+                continue;
+            else
+                return bb.getLowestUnreceivedMessage();
+        }
+
+        return null;
+    }
+
+    /**
      * Store this message
      *
      * @param message The message to store
@@ -28,7 +45,7 @@ public class BlockAssembler {
 
         // this may be the first message in this block
         if(bb == null){
-            bb = new BlockBuilder(message.blockSize);
+            bb = new BlockBuilder(message.senderID, message.blockIndex, message.blockOffset, message.blockSize);
             blocks.put(new IncompleteMessageTuple(message.senderID, message.blockIndex), bb);
         }
 
@@ -96,6 +113,17 @@ public class BlockAssembler {
         blocks.remove(new IncompleteMessageTuple(senderID, blockIndex));
     }
 
+    /**
+     * What fraction of this block is formed?
+     */
+    public double getBlockProgress(int senderID, int blockIndex){
+        BlockBuilder bb = getBlockBuilder(senderID, blockIndex);
+        if(bb == null)
+            return 0.0;
+
+        return bb.getProgress();
+    }
+
     private BlockBuilder getBlockBuilder(int senderID, int blockIndex){
         IncompleteMessageTuple key = new IncompleteMessageTuple(senderID, blockIndex);
         return blocks.get(key);
@@ -152,22 +180,57 @@ class BlockBuilder {
      * An in-order mapping of sequence numbers to messages.
      * Order is maintained so we can iterate over all the values
      * in O(n) time while remaining sorted.
+     * </br>
+     * In the future, we may want to also use a regular hash
+     * table, since we frequently do lookups and it's unconfirmed
+     * it Java's TreeMap can do O(1) lookup (probably not). For
+     * now, O(log(n)) is sufficient (Java uses Red-Black trees)
      */
     public SortedMap<Integer, Message> pieces;
 
     /**
-     * How many messages will be contained once full
+     * The SenderID of the user who created this block.
+     */
+    public int senderID;
+
+    /**
+     * The index of this block, relative to sender.
+     */
+    public int blockIndex;
+
+    /**
+     * The sequence number of the first message in this block
+     */
+    public int blockOffset;
+
+    /**
+     * The size of this block once full.
      */
     public int blockSize;
+
+    /**
+     * Sequence number of the lowest unreceived message.
+     * If we track this, we can get the sequence number of
+     * an unreceived message in ~O(1) time (assuming) message
+     * come relatively in-order.
+     */
+    public int lowestUnreceivedMessage;
 
     /**
      * Track if this block is a text message or a file (default to text)
      */
     public Message.Type blockType = Message.Type.TEXT;
 
-    public BlockBuilder(int blockSize){
+    public BlockBuilder(int senderID, int blockIndex, int blockOffset, int blockSize){
         this.pieces = new TreeMap<Integer, Message>();
+        this.senderID = senderID;
         this.blockSize = blockSize;
+        this.blockOffset = blockOffset;
+        this.lowestUnreceivedMessage = blockOffset;
+    }
+
+    public Message getLowestUnreceivedMessage(){
+        return new Message(null, null, senderID, blockIndex, blockOffset, blockSize, lowestUnreceivedMessage, 0);
     }
 
     /**
@@ -177,6 +240,11 @@ class BlockBuilder {
      */
     public void addMessage(Message message){
         pieces.put(message.sequenceNumber, message);
+
+        // find new lowest unreceived message
+        while(pieces.containsKey(lowestUnreceivedMessage)){
+            lowestUnreceivedMessage++;
+        }
     }
 
     /**
@@ -202,6 +270,13 @@ class BlockBuilder {
      */
     public String getText(){
         return new String(getBinary(), StandardCharsets.US_ASCII);
+    }
+
+    /**
+     * What fraction of this block is formed?
+     */
+    public double getProgress(){
+        return ((double) pieces.size())/(blockSize);
     }
 
     /**

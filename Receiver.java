@@ -16,7 +16,7 @@ public class Receiver implements Runnable {
     /**
      * If true, will print out control messages as they are received.
      */
-    public final boolean DEBUG = false;
+    public final boolean DEBUG = true;
 
     /**
      * Port for UDP control packet receiving.
@@ -113,6 +113,16 @@ public class Receiver implements Runnable {
                     this.client.chat.peerCanceled(packet.senderID);
                     break;
 
+                    case DATA:
+                    if (DEBUG) System.out.println(this.whatsHisName(packet.senderID)+" sent a data packet, seqNum " + packet.message.sequenceNumber);
+                    receiveMessage(packet.message, packet.senderID);
+                    break;
+
+                    case REQUEST:
+                    if (DEBUG) System.out.println(this.whatsHisName(packet.senderID)+" sent a request packet");
+                    this.client.chat.peerRequestedMessage(packet.senderID, packet.message);
+                    break;
+
                     default:
                     System.err.println("Unrecognized packet type "+packet.type);
                     break;
@@ -123,4 +133,15 @@ public class Receiver implements Runnable {
         }
     }
 
+    private void receiveMessage(Message message, int senderID){
+        this.client.chat.have(message, senderID);
+
+        Peer peer = this.client.chat.checkAddressBook(senderID);
+
+        synchronized (peer) {
+            peer.currentlyRequesting = false;
+            peer.chokedMe = true;
+        }
+        this.client.chat.beInterested();
+    }
 }
