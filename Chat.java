@@ -54,6 +54,11 @@ public class Chat {
     public HashSet<Peer> unchokedPeers = new HashSet<Peer>();
 
     /**
+     * An object used to track requests made.
+     */
+    public RequestTracker requestTracker;
+
+    /**
      * Creates a group chat from the given Group.
      * @param group Data from the Server to initialize a chat among peers.
      */
@@ -69,6 +74,12 @@ public class Chat {
             User user = users.next();
             this.peers.add(new Peer(user));
         }
+
+        requestTracker = new RequestTracker(this);
+
+        // periodically be interested
+        Thread requestTracker = new Thread(this.requestTracker);
+        requestTracker.start();
     }
 
     /**
@@ -82,7 +93,7 @@ public class Chat {
      * A class used for assembling blocks as they come in. The class itself can either
      * be synchronized (using a concurrent HashMap) or un-sync'ed.
      */
-    private BlockAssembler blockAssembler = new BlockAssembler(true);
+    private BlockAssembler blockAssembler = new BlockAssembler(this, true);
 
 
     /**
@@ -131,7 +142,7 @@ public class Chat {
         // do I want this message? should I ask for it?
         Message myVersion = this.getMessage(message.senderID, message.sequenceNumber);
 
-        if (myVersion == null) {
+        if (myVersion == null && requestTracker.canRequestMessage(message.senderID, message.sequenceNumber)) {
             // ask for it
             ControlPacket interest = new ControlPacket(ControlPacket.Type.INTERESTED, this.hostID, message);
             peer.sendControlData(interest.pack());
@@ -163,6 +174,8 @@ public class Chat {
         Message myVersion = this.getMessage(message.senderID, message.sequenceNumber);
 
         if (myVersion == null) {
+            System.err.println("Someone asked for something I don't have: sequence number " + message.sequenceNumber 
+                + " from " + whatsHisName(message.senderID));
             return; // someone asked for something I don't have
         }
 
@@ -241,8 +254,10 @@ public class Chat {
      * @param careOf The Peer I received this message through (the id of the actual person who sent it to me)
      */
     public void have(Message message, int careOf) {
-        System.out.println("I have the message with sender, sequence number " 
-            + whatsHisName(message.senderID)  + ", "+ message.sequenceNumber);
+        
+        if(getMessage(message.senderID, message.sequenceNumber) != null)
+            return;
+
         this.storeMessage(message);
         blockAssembler.storeMessage(message);
 
@@ -278,10 +293,6 @@ public class Chat {
 
             // we are no longer "building" this block so remove it from assembler
             blockAssembler.removeBlock(message.senderID, message.blockIndex);
-        }else{
-            System.out.println("PROGRESS on block " + message.blockIndex 
-                + ", sender " +this.whatsHisName(message.senderID) 
-                + ": " + blockAssembler.getBlockProgress(message.senderID, message.blockIndex));
         }
 
         // Sending over UDP, so the HAVE message might get lost in the mail.
@@ -378,8 +389,9 @@ public class Chat {
                 Peer peer = peerIterator.next();
                 if (!peer.currentlyRequesting) {
                     Message interestedIn = this.beJealous(peer);
-                    if (interestedIn != null) {
+                    if (interestedIn != null && interestedIn.senderID != this.hostID) {
                         peer.sendControlData(new ControlPacket(ControlPacket.Type.INTERESTED, this.hostID, interestedIn).pack());
+                        boolean doIHaveIt = getMessage(interestedIn.senderID, interestedIn.sequenceNumber) != null;
                     } else {
                         // System.out.println("nothing to be interested in");
                     }
@@ -415,8 +427,8 @@ public class Chat {
 
                         Message myVersion = this.getMessage(sender, availableSequenceNumber);
 
-                        // I don't have this one, so I want it.
-                        if (myVersion == null) {
+                        // I don't have this one, we haven't requested it recently, thus I want it.
+                        if (myVersion == null && requestTracker.canRequestMessage(sender, availableSequenceNumber)) {
                             int sequenceNumber = availableSequenceNumber;
                             int messageCreator = sender;
                             return new Message(null, null, messageCreator, 0, 0, 0, sequenceNumber, 0);
@@ -475,17 +487,14 @@ public class Chat {
                 // }
 
                 // TODO store this message temporarily and start a callback (efficiently)
+                requestTracker.logRequest(toRequest.senderID, toRequest.sequenceNumber);
 
                 peer.sendControlData(new ControlPacket(ControlPacket.Type.REQUEST, this.hostID, toRequest).pack());
-                if(messages.get(toRequest.senderID) != null)
-                    System.out.println("Sending request for " + whatsHisName(toRequest.senderID) 
-                        + ", " + toRequest.sequenceNumber + "; I have " +messages.get(toRequest.senderID).size());
 
             } else {
                 // send back cancel
                 ControlPacket cancelPacket = new ControlPacket(ControlPacket.Type.CANCEL, this.hostID, null);
                 peer.sendControlData(cancelPacket.pack());
-                System.out.println("Sending Cancellation; I have " + messages.get(peerID).size());
             }
         }
     }
@@ -544,7 +553,7 @@ public class Chat {
                 }
                 
             } else {
-                System.err.println("Request from choked peer "+whatsHisName(peerID));
+                // System.err.println("Request from choked peer "+whatsHisName(peerID));
             }
         }
     }

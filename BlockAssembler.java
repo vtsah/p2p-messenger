@@ -7,9 +7,17 @@ import java.nio.charset.StandardCharsets;
  * A utility class used for assembling many partially-formed blocks.
  */
 public class BlockAssembler {
+
+    public Chat chat;
+
+    /**
+     * The blocks we are building
+     */
     public AbstractMap<IncompleteMessageTuple, BlockBuilder> blocks;
 
-    public BlockAssembler(boolean multithreaded){
+    public BlockAssembler(Chat chat, boolean multithreaded){
+        this.chat = chat;
+
         if(multithreaded){
             this.blocks = new ConcurrentHashMap<IncompleteMessageTuple, BlockBuilder>();
         }else{
@@ -27,8 +35,10 @@ public class BlockAssembler {
 
             if(bb.isFull())
                 continue;
-            else
-                return bb.getLowestUnreceivedMessage();
+            
+            Message m = bb.getLowestUnreceivedMessage(false);
+            if(m != null)
+                return m;
         }
 
         return null;
@@ -45,7 +55,7 @@ public class BlockAssembler {
 
         // this may be the first message in this block
         if(bb == null){
-            bb = new BlockBuilder(message.senderID, message.blockIndex, message.blockOffset, message.blockSize);
+            bb = new BlockBuilder(this, message.senderID, message.blockIndex, message.blockOffset, message.blockSize);
             blocks.put(new IncompleteMessageTuple(message.senderID, message.blockIndex), bb);
         }
 
@@ -176,6 +186,12 @@ class IncompleteMessageTuple{
  * as many tiny messages (pieces)
  */
 class BlockBuilder {
+
+    /**
+     * The "parent" block assembler
+     */
+    public BlockAssembler blockAssembler;
+
     /**
      * An in-order mapping of sequence numbers to messages.
      * Order is maintained so we can iterate over all the values
@@ -221,7 +237,8 @@ class BlockBuilder {
      */
     public Message.Type blockType = Message.Type.TEXT;
 
-    public BlockBuilder(int senderID, int blockIndex, int blockOffset, int blockSize){
+    public BlockBuilder(BlockAssembler parent, int senderID, int blockIndex, int blockOffset, int blockSize){
+        this.blockAssembler = parent;
         this.pieces = new TreeMap<Integer, Message>();
         this.senderID = senderID;
         this.blockSize = blockSize;
@@ -229,8 +246,26 @@ class BlockBuilder {
         this.lowestUnreceivedMessage = blockOffset;
     }
 
-    public Message getLowestUnreceivedMessage(){
-        return new Message(null, null, senderID, blockIndex, blockOffset, blockSize, lowestUnreceivedMessage, 0);
+    /**
+     * Get the lowest unreceived message if timeout is ignored.
+     * If timeout is not ignored, then we find the lowest unreceived
+     * message that we aren't still waiting to hear back from.
+     */
+    public Message getLowestUnreceivedMessage(boolean ignoreTimeout){
+        if(ignoreTimeout)
+            return new Message(null, null, senderID, blockIndex, blockOffset, blockSize, lowestUnreceivedMessage, 0);
+
+        // find the lowest sequence number that we can request (we didn't just request it) and is unreceived
+        int index = lowestUnreceivedMessage;
+        while(!this.blockAssembler.chat.requestTracker.canRequestMessage(senderID, index) || pieces.containsKey(index)){
+            index++;
+        }
+
+        // if this block comprises 5 messages, don't ask for the 6th message
+        if(index >= blockOffset + blockSize)
+            return null;
+        else
+            return new Message(null, null, senderID, blockIndex, blockOffset, blockSize, index, 0);        
     }
 
     /**
