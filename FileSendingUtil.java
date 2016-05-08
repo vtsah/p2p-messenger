@@ -1,5 +1,6 @@
 import java.io.*;
-import java.nio.file.Files;
+import java.nio.file.*;
+import java.nio.charset.StandardCharsets;
 
 /**
  * A class to help send/receive files. Mostly text parsing and file I/O.
@@ -92,6 +93,34 @@ public class FileSendingUtil {
 
         sendFile();
         return true;
+    }
+
+    /**
+     * Save this file to the current directory and notify the user.
+     *
+     * @param data the data to handle
+     * @param senderID the ID of the sender
+     * @return true if successfully handled, else false
+     */
+    public boolean handleReceivingFile(byte [] data, int senderID){
+        String whereToPutIt = "";
+        try{
+            // get the name of cwd
+            Path currentRelativePath = Paths.get("");
+            String cwd = currentRelativePath.toAbsolutePath().toString();
+
+            // get the name of a unique file in the current directory
+            whereToPutIt = File.createTempFile(chat.whatsHisName(senderID), ".file", new File(cwd)).getPath();
+            
+            System.out.println(chat.whatsHisName(senderID)+" sent a file, saving to "+whereToPutIt);
+
+            Files.write(Paths.get(whereToPutIt), data);
+            return true;
+        }catch(Exception e){
+            System.err.println("Couldn't save file "+whereToPutIt);
+            e.printStackTrace();
+            return false;
+        }
     }
 
     // assume file exists by this point

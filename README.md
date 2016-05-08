@@ -14,6 +14,11 @@ Then run any number of clients with the command `java Client server-ip server-po
 
 Then start typing in the clients' standard inputs. Each line will be distributed to everyone else in the chat.
 
+To send files, type:
+	/sendfile /path/to/file.txt
+
+The path above can be either relative to current working directory, or absolute.
+
 ## TODO
 
 * KEEPALIVE messages between clients and with server to detect clients disconnecting.

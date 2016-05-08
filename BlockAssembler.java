@@ -7,14 +7,41 @@ import java.nio.charset.StandardCharsets;
  * A utility class used for assembling many partially-formed blocks.
  */
 public class BlockAssembler {
+
+    public Chat chat;
+
+    /**
+     * The blocks we are building
+     */
     public AbstractMap<IncompleteMessageTuple, BlockBuilder> blocks;
 
-    public BlockAssembler(boolean multithreaded){
+    public BlockAssembler(Chat chat, boolean multithreaded){
+        this.chat = chat;
+
         if(multithreaded){
             this.blocks = new ConcurrentHashMap<IncompleteMessageTuple, BlockBuilder>();
         }else{
             this.blocks = new HashMap<IncompleteMessageTuple, BlockBuilder>();
         }
+    }
+
+    /**
+     * This works just like Chat#beJealous(). Returns a message that is needed, or
+     * null if none are needed.
+     */
+    public Message getNeededMessage(){
+        for(Map.Entry<IncompleteMessageTuple, BlockBuilder> entry : blocks.entrySet()){
+            BlockBuilder bb = entry.getValue();
+
+            if(bb.isFull())
+                continue;
+            
+            Message m = bb.getLowestUnreceivedMessage(false);
+            if(m != null)
+                return m;
+        }
+
+        return null;
     }
 
     /**
@@ -28,8 +55,11 @@ public class BlockAssembler {
 
         // this may be the first message in this block
         if(bb == null){
-            bb = new BlockBuilder(message.blockSize);
+            bb = new BlockBuilder(this, message.type, message.senderID, message.blockIndex, message.blockOffset, message.blockSize);
             blocks.put(new IncompleteMessageTuple(message.senderID, message.blockIndex), bb);
+
+            if(message.type == Message.Type.FILE && message.senderID != chat.hostID)
+                System.out.println(chat.whatsHisName(message.senderID)+" is sending a file...");
         }
 
         bb.addMessage(message);
@@ -96,6 +126,41 @@ public class BlockAssembler {
         blocks.remove(new IncompleteMessageTuple(senderID, blockIndex));
     }
 
+    /**
+     * What fraction of this block is formed?
+     */
+    public double getBlockProgress(int senderID, int blockIndex){
+        BlockBuilder bb = getBlockBuilder(senderID, blockIndex);
+        if(bb == null)
+            return 0.0;
+
+        return bb.getProgress();
+    }
+
+    /**
+     *
+     */
+    public boolean blockIsText(int senderID, int blockIndex){
+        BlockBuilder inQuestion = getBlockBuilder(senderID, blockIndex);
+
+        if(inQuestion == null)
+            return false;
+
+        return inQuestion.isText();
+    }
+
+    /**
+     *
+     */
+    public boolean blockIsAFile(int senderID, int blockIndex){
+        BlockBuilder inQuestion = getBlockBuilder(senderID, blockIndex);
+
+        if(inQuestion == null)
+            return false;
+
+        return inQuestion.isAFile();
+    }
+
     private BlockBuilder getBlockBuilder(int senderID, int blockIndex){
         IncompleteMessageTuple key = new IncompleteMessageTuple(senderID, blockIndex);
         return blocks.get(key);
@@ -148,26 +213,87 @@ class IncompleteMessageTuple{
  * as many tiny messages (pieces)
  */
 class BlockBuilder {
+
+    /**
+     * The "parent" block assembler
+     */
+    public BlockAssembler blockAssembler;
+
     /**
      * An in-order mapping of sequence numbers to messages.
      * Order is maintained so we can iterate over all the values
      * in O(n) time while remaining sorted.
+     * </br>
+     * In the future, we may want to also use a regular hash
+     * table, since we frequently do lookups and it's unconfirmed
+     * it Java's TreeMap can do O(1) lookup (probably not). For
+     * now, O(log(n)) is sufficient (Java uses Red-Black trees)
      */
     public SortedMap<Integer, Message> pieces;
 
     /**
-     * How many messages will be contained once full
+     * The SenderID of the user who created this block.
+     */
+    public int senderID;
+
+    /**
+     * The index of this block, relative to sender.
+     */
+    public int blockIndex;
+
+    /**
+     * The sequence number of the first message in this block
+     */
+    public int blockOffset;
+
+    /**
+     * The size of this block once full.
      */
     public int blockSize;
+
+    /**
+     * Sequence number of the lowest unreceived message.
+     * If we track this, we can get the sequence number of
+     * an unreceived message in ~O(1) time (assuming) message
+     * come relatively in-order.
+     */
+    public int lowestUnreceivedMessage;
 
     /**
      * Track if this block is a text message or a file (default to text)
      */
     public Message.Type blockType = Message.Type.TEXT;
 
-    public BlockBuilder(int blockSize){
+    public BlockBuilder(BlockAssembler parent, Message.Type blockType, int senderID, int blockIndex, int blockOffset, int blockSize){
+        this.blockAssembler = parent;
+        this.blockType = blockType;
         this.pieces = new TreeMap<Integer, Message>();
+        this.senderID = senderID;
         this.blockSize = blockSize;
+        this.blockOffset = blockOffset;
+        this.lowestUnreceivedMessage = blockOffset;
+    }
+
+    /**
+     * Get the lowest unreceived message if timeout is ignored.
+     * If timeout is not ignored, then we find the lowest unreceived
+     * message that we aren't still waiting to hear back from.
+     */
+    public Message getLowestUnreceivedMessage(boolean ignoreTimeout){
+        if(ignoreTimeout)
+            return new Message(null, null, senderID, blockIndex, blockOffset, blockSize, lowestUnreceivedMessage, 0);
+
+        // find the lowest sequence number that we can request (we didn't just request it) and is unreceived
+        int index = lowestUnreceivedMessage;
+        while(!this.blockAssembler.chat.requestTracker.canRequestMessage(senderID, index) || pieces.containsKey(index)){
+            index++;
+        }
+
+        // if this block comprises 5 messages, don't ask for the 6th message
+        if(index >= blockOffset + blockSize)
+            return null;
+        else
+            return new Message(null, null, senderID, blockIndex, blockOffset, blockSize, index, 0);        
     }
 
     /**
@@ -177,6 +303,11 @@ class BlockBuilder {
      */
     public void addMessage(Message message){
         pieces.put(message.sequenceNumber, message);
+
+        // find new lowest unreceived message
+        while(pieces.containsKey(lowestUnreceivedMessage)){
+            lowestUnreceivedMessage++;
+        }
     }
 
     /**
@@ -187,7 +318,7 @@ class BlockBuilder {
 
         ByteArrayOutputStream os = new ByteArrayOutputStream();
         for (Map.Entry<Integer, Message> entry : pieces.entrySet()) {
-            Message m = (Message) entry.getValue();
+            Message m = entry.getValue();
             if(m.data == null)
                 continue;
 
@@ -202,6 +333,13 @@ class BlockBuilder {
      */
     public String getText(){
         return new String(getBinary(), StandardCharsets.US_ASCII);
+    }
+
+    /**
+     * What fraction of this block is formed?
+     */
+    public double getProgress(){
+        return ((double) pieces.size())/(blockSize);
     }
 
     /**

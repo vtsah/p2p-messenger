@@ -54,6 +54,11 @@ public class Chat {
     public HashSet<Peer> unchokedPeers = new HashSet<Peer>();
 
     /**
+     * An object used to track requests made.
+     */
+    public RequestTracker requestTracker;
+
+    /**
      * Creates a group chat from the given Group.
      * @param group Data from the Server to initialize a chat among peers.
      */
@@ -69,6 +74,12 @@ public class Chat {
             User user = users.next();
             this.peers.add(new Peer(user));
         }
+
+        requestTracker = new RequestTracker(this);
+
+        // periodically be interested
+        Thread requestTracker = new Thread(this.requestTracker);
+        requestTracker.start();
     }
 
     /**
@@ -82,7 +93,7 @@ public class Chat {
      * A class used for assembling blocks as they come in. The class itself can either
      * be synchronized (using a concurrent HashMap) or un-sync'ed.
      */
-    private BlockAssembler blockAssembler = new BlockAssembler(true);
+    private BlockAssembler blockAssembler = new BlockAssembler(this, true);
 
 
     /**
@@ -131,7 +142,7 @@ public class Chat {
         // do I want this message? should I ask for it?
         Message myVersion = this.getMessage(message.senderID, message.sequenceNumber);
 
-        if (myVersion == null) {
+        if (myVersion == null && requestTracker.canRequestMessage(message.senderID, message.sequenceNumber)) {
             // ask for it
             ControlPacket interest = new ControlPacket(ControlPacket.Type.INTERESTED, this.hostID, message);
             peer.sendControlData(interest.pack());
@@ -229,7 +240,6 @@ public class Chat {
      * Print the message? Only if it's the next in line.
      */
     public boolean shouldPrintMessage(Message message) {
-        // TODO: print them in order
         return message.senderID != this.hostID; // don't reprint the ones the client is sending.
     }
 
@@ -241,6 +251,10 @@ public class Chat {
      * @param careOf The Peer I received this message through (the id of the actual person who sent it to me)
      */
     public void have(Message message, int careOf) {
+        
+        if(getMessage(message.senderID, message.sequenceNumber) != null)
+            return;
+
         this.storeMessage(message);
         blockAssembler.storeMessage(message);
 
@@ -260,26 +274,30 @@ public class Chat {
         }
 
         if (this.shouldPrintMessage(message) && blockAssembler.isBlockComplete(message.senderID, message.blockIndex)) {
-            // who sent this?
-            String sender = this.whatsHisName(message.senderID);
 
-            // and what was the message again?
-            String text = blockAssembler.getText(message.senderID, message.blockIndex);
+            // is this block a text message or a file?
+            if(blockAssembler.blockIsText(message.senderID, message.blockIndex)){
+                // who sent this?
+                String sender = this.whatsHisName(message.senderID);
 
-            if (message.senderID != careOf) {
-                String goBetween = this.whatsHisName(careOf);
+                // and what was the message again?
+                String text = blockAssembler.getText(message.senderID, message.blockIndex);
 
-                System.out.println(sender+" (via "+goBetween+"): "+text);
-            } else {
-                System.out.println(sender+": "+text);
+                if (message.senderID != careOf) {
+                    String goBetween = this.whatsHisName(careOf);
+
+                    System.out.println(sender+" (via "+goBetween+"): "+text);
+                } else {
+                    System.out.println(sender+": "+text);
+                }
+
+                // we are no longer "building" this block so remove it from assembler
+                blockAssembler.removeBlock(message.senderID, message.blockIndex);
+            }else{
+                FileSendingUtil receiver = new FileSendingUtil(this);
+                receiver.handleReceivingFile(blockAssembler.getBinary(message.senderID, message.blockIndex), message.senderID);
             }
-
-            // we are no longer "building" this block so remove it from assembler
-            blockAssembler.removeBlock(message.senderID, message.blockIndex);
         }
-
-        // Sending over UDP, so the HAVE message might get lost in the mail.
-        // TODO set up a timeout to resend if no one is interested.
     }
 
     /**
@@ -303,7 +321,7 @@ public class Chat {
         // break up blocks into little pieces.
 
         int pieceCount = (block.length + Message.MAX_PIECE - 1) / Message.MAX_PIECE;
-
+        int firstSeq = this.sequenceNumber;
         for (int i = 0; i < pieceCount; i++) {
             int startIndex = i * Message.MAX_PIECE;
             int bytesRemaining = block.length - startIndex;
@@ -311,12 +329,12 @@ public class Chat {
                 bytesRemaining = Message.MAX_PIECE;
             }
             byte[] piece = Arrays.copyOfRange(block, startIndex, startIndex + bytesRemaining);
-            this.newPiece(type, piece, blockIndex, pieceCount);
+            this.newPiece(type, piece, blockIndex, pieceCount, firstSeq);
         }
     }
 
-    public void newPiece(Message.Type type, byte[] piece, int blockIndex, int pieceCount) {
-        this.have(new Message(type, piece, this.hostID, blockIndex, pieceCount, 
+    public void newPiece(Message.Type type, byte[] piece, int blockIndex, int pieceCount, int blockOffset) {
+        this.have(new Message(type, piece, this.hostID, blockIndex, blockOffset, pieceCount, 
             this.sequenceNumber++, System.currentTimeMillis()), this.hostID);
     }
 
@@ -372,8 +390,9 @@ public class Chat {
                 Peer peer = peerIterator.next();
                 if (!peer.currentlyRequesting) {
                     Message interestedIn = this.beJealous(peer);
-                    if (interestedIn != null) {
+                    if (interestedIn != null && interestedIn.senderID != this.hostID) {
                         peer.sendControlData(new ControlPacket(ControlPacket.Type.INTERESTED, this.hostID, interestedIn).pack());
+                        boolean doIHaveIt = getMessage(interestedIn.senderID, interestedIn.sequenceNumber) != null;
                     } else {
                         // System.out.println("nothing to be interested in");
                     }
@@ -409,11 +428,11 @@ public class Chat {
 
                         Message myVersion = this.getMessage(sender, availableSequenceNumber);
 
-                        // I don't have this one, so I want it.
-                        if (myVersion == null) {
+                        // I don't have this one, we haven't requested it recently, thus I want it.
+                        if (myVersion == null && requestTracker.canRequestMessage(sender, availableSequenceNumber)) {
                             int sequenceNumber = availableSequenceNumber;
                             int messageCreator = sender;
-                            return new Message(null, null, messageCreator, 0, 666, sequenceNumber, 0);
+                            return new Message(null, null, messageCreator, 0, 0, 0, sequenceNumber, 0);
                         } else {
                             // System.out.println("Already have sender "+sender+" sequence number "+availableSequenceNumber);
                         }
@@ -422,7 +441,9 @@ public class Chat {
                 }
             }
         }
-        return null;
+
+        // couldn't find one in peer.messages, look for one in blockAssembler
+        return blockAssembler.getNeededMessage();
     }
 
     /**
@@ -443,28 +464,10 @@ public class Chat {
             Message toRequest = this.beJealous(peer);
 
             if (toRequest != null) {
-                synchronized (peer) {
-                    if (peer.currentlyRequesting) {
-                        return;
-                    }
-                    peer.currentlyRequesting = true;
-                }
-                // occupy the spot for the message, so I don't try to download it twice.
-                this.storeMessage(toRequest);
+                requestTracker.logRequest(toRequest.senderID, toRequest.sequenceNumber);
 
-                // request this packet.
-                // should definitely do the request in another thread,
-                // because don't want to block the control packet thread with a TCP client
-                Leecher leecher = new Leecher(peer, this, toRequest.senderID, toRequest.sequenceNumber);
-                Thread leecherThread = new Thread(leecher);
+                peer.sendControlData(new ControlPacket(ControlPacket.Type.REQUEST, this.hostID, toRequest).pack());
 
-                leecherThread.start();
-
-                try{
-                    leecherThread.join();
-                }catch(Exception e){
-                    e.printStackTrace();
-                }
             } else {
                 // send back cancel
                 ControlPacket cancelPacket = new ControlPacket(ControlPacket.Type.CANCEL, this.hostID, null);
@@ -487,6 +490,46 @@ public class Chat {
                     }
                 }
                 peer.chokedByMe = true;
+            }
+        }
+    }
+
+    /**
+     * A peer requested I send a message. This is different
+     * than <emph>Interested</emph>; to make a request you
+     * must be unchoked.</br>
+     * Basically, I should send this message over ASAP
+     */
+    public void peerRequestedMessage(int peerID, Message message){
+        Peer connectedPeer = checkAddressBook(peerID);
+        if (connectedPeer == null) {
+            System.err.println("Got a request from an unknown user; ignoring it");
+            return;
+        }
+
+        synchronized (connectedPeer) {
+            if (!connectedPeer.chokedByMe) {
+                int messageCreator = message.senderID;
+                int sequenceNumber = message.sequenceNumber;
+
+                // get the message
+                Message messageToSend = this.client.chat.getMessage(messageCreator, sequenceNumber);
+                if (messageToSend == null || messageToSend.data == null) {
+                    return; // sadly we don't have this message
+                }
+
+                // send back the message's data.
+                connectedPeer.sendControlData(new ControlPacket(ControlPacket.Type.DATA, this.hostID, messageToSend).pack());
+
+                synchronized (this.client.chat.unchokedPeers) {
+                    synchronized (connectedPeer) {
+                        this.client.chat.unchokedPeers.remove(connectedPeer);
+                        connectedPeer.chokedByMe = true;
+                    }
+                }
+                
+            } else {
+                // System.err.println("Request from choked peer "+whatsHisName(peerID));
             }
         }
     }

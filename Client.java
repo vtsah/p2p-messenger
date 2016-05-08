@@ -5,6 +5,8 @@
 
 import java.io.*;
 import java.util.*;
+import java.util.AbstractMap.SimpleEntry;
+import java.util.concurrent.locks.*;
 import java.net.*;
 import java.nio.*;
 import java.nio.charset.*;
@@ -44,6 +46,11 @@ public class Client {
     public int userUUID = 0;
 
     public User user = null;
+
+    /**
+     * A list of all blocks that we can save right now.
+     */
+    public Queue<SimpleEntry<byte[], Integer>> pendingBlocksToSave = null;
 
     /**
      * Creates client.
@@ -123,10 +130,9 @@ public class Client {
      */
     public void startMessaging() {
         while (true) {
-            InputStreamReader converter = new InputStreamReader(System.in);
-            BufferedReader in = new BufferedReader(converter);
+            Scanner in = new Scanner(System.in);
             try {
-                String message = in.readLine();
+                String message = in.nextLine();
 
                 if(FileSendingUtil.userWantsToSendFile(message)){
                     FileSendingUtil fileSender = new FileSendingUtil(this.chat);
@@ -134,7 +140,7 @@ public class Client {
                 }else{
                     this.chat.newBlock(message);
                 }
-            } catch (IOException ex) {
+            } catch (Exception ex) {
                 ex.printStackTrace();
             }
             

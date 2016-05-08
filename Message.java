@@ -30,7 +30,7 @@ public class Message {
     /**
      * Data sent in message (probably ASCII representation of a string, but maybe part of attachment)
      */
-    public byte[] data = null;
+    public byte[] data = new byte[0];
 
     /**
      * Unique Sender identifier.
@@ -43,6 +43,11 @@ public class Message {
      * and each message gets the same block index.
      */
     public int blockIndex = 0;
+
+    /**
+     * The first sequence number of this message's block.
+     */
+    public int blockOffset = 0;
 
     /**
      * The number of messages comprising this message's block.
@@ -66,11 +71,14 @@ public class Message {
      * @param senderID The unique identifier of the sending User.
      * @param sequenceNumber The index of the message as sent by the sender.
      */
-    public Message(Type type, byte[] data, int senderID, int blockIndex, int blockSize, int sequenceNumber, long date) {
-        this.type = type;
-        this.data = data;
+    public Message(Type type, byte[] data, int senderID, int blockIndex, int blockOffset, int blockSize, int sequenceNumber, long date) {
+        if(type != null)
+            this.type = type;
+        if(data != null)
+            this.data = data;
         this.senderID = senderID;
         this.blockIndex = blockIndex;
+        this.blockOffset = blockOffset;
         this.blockSize = blockSize;
         this.sequenceNumber = sequenceNumber;
         this.date = date;
@@ -87,6 +95,7 @@ public class Message {
             IOHelper.writeByteArray(this.data, byteStream);
             IOHelper.writeInt(this.senderID, byteStream);
             IOHelper.writeInt(this.blockIndex, byteStream);
+            IOHelper.writeInt(this.blockOffset, byteStream);
             IOHelper.writeInt(this.blockSize, byteStream);
             IOHelper.writeInt(this.sequenceNumber, byteStream);
             IOHelper.writeLong(this.date, byteStream);
@@ -101,9 +110,28 @@ public class Message {
     /** 
      * Unpack a message from sending over the wire.
      */
+    public static Message unpack(byte[] binary) {
+        ByteArrayInputStream ba = new ByteArrayInputStream(binary);
+        BufferedInputStream bis = new BufferedInputStream(ba);
+        
+        Message toReturn = unpack(bis);
+
+        try{
+            ba.close();
+            bis.close();
+        }catch (Exception e){
+            System.err.println("Message: Can't close input stream(s)");
+            e.printStackTrace();
+        }
+        return toReturn;
+    }
+
+    /** 
+     * Unpack a message from sending over the wire.
+     */
     public static Message unpack(BufferedInputStream input) {
         byte[] data = null;
-        int senderID, blockIndex, blockSize, sequenceNumber;
+        int senderID, blockIndex, blockSize, sequenceNumber, blockOffset;
         Type type;
         long date;
         try {
@@ -111,6 +139,7 @@ public class Message {
             data = IOHelper.getByteArray(input);
             senderID = IOHelper.getInt(input);
             blockIndex = IOHelper.getInt(input);
+            blockOffset = IOHelper.getInt(input);
             blockSize = IOHelper.getInt(input);
             sequenceNumber = IOHelper.getInt(input);
             date = IOHelper.getLong(input);
@@ -118,6 +147,6 @@ public class Message {
             ex.printStackTrace();
             return null;
         }
-        return new Message(type, data, senderID, blockIndex, blockSize, sequenceNumber, date);
+        return new Message(type, data, senderID, blockIndex, blockOffset, blockSize, sequenceNumber, date);
     }
 }
