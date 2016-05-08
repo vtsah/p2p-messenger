@@ -1,5 +1,5 @@
 
-JFLAGS = -g
+JFLAGS = -g -Xlint
 JC = javac
 
 all:

@@ -1,5 +1,7 @@
 import java.io.*;
 import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.charset.StandardCharsets;
 
 /**
  * A class to help send/receive files. Mostly text parsing and file I/O.
@@ -93,6 +95,73 @@ public class FileSendingUtil {
         sendFile();
         return true;
     }
+
+    /**
+     * Decide whether a user wants to save this file, print it out, or neither
+     *
+     * @param data the data to handle
+     * @param senderID the ID of the sender
+     * @return true if successfully handled, else false
+     */
+    public boolean handleReceivingFile(byte [] data, int senderID){
+        System.out.println("Received a file from "+chat.whatsHisName(senderID));
+        
+        String response = "";
+
+        InputStreamReader converter = new InputStreamReader(System.in);
+        BufferedReader in = new BufferedReader(converter);
+
+        while(!(response.equals("s") || response.equals("p") || response.equals("d"))){
+            System.out.println("Would you like save (s), print (p) or discard (d) it?");
+            try{
+                response = in.readLine().split(" ")[0];
+                System.out.println("Response: " + response);
+            }catch(Exception e){
+                System.err.println("Error reading from stdin");
+                e.printStackTrace();
+                return false;
+            }
+        }
+
+        switch(response){
+            case ("s"):
+            return saveFile(data, in);
+
+            case ("p"):
+            System.out.println(new String(data, StandardCharsets.US_ASCII));
+            return true;
+
+            case ("d"):
+            return true;
+
+            default:
+            System.err.println("Not sure what to do with this file. Aborting.");
+            return false;
+        }
+    }
+
+    private boolean saveFile(byte [] data, BufferedReader in){
+        boolean success = false;
+
+        while(!success){
+            System.out.println("Where would you like to save the file? Enter (c) to cancel.");
+            try{
+                String input = in.readLine();
+
+                if(input.toLowerCase().equals("c"))
+                    return true;
+
+                Files.write(Paths.get(input), data);
+                success = true;
+            }catch(IOException e){
+                success = false;
+            }
+            
+        }
+
+        return true;
+    }
+
 
     // assume file exists by this point
     private void sendFile(){

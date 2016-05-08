@@ -8,6 +8,7 @@ import java.util.*;
 import java.net.*;
 import java.nio.*;
 import java.nio.charset.*;
+import java.util.AbstractMap.SimpleEntry;
 import java.math.*;
 
 public class Chat {
@@ -277,26 +278,32 @@ public class Chat {
         }
 
         if (this.shouldPrintMessage(message) && blockAssembler.isBlockComplete(message.senderID, message.blockIndex)) {
-            // who sent this?
-            String sender = this.whatsHisName(message.senderID);
 
-            // and what was the message again?
-            String text = blockAssembler.getText(message.senderID, message.blockIndex);
+            // is this block a text message or a file?
+            if(blockAssembler.blockIsText(message.senderID, message.blockIndex)){
+                // who sent this?
+                String sender = this.whatsHisName(message.senderID);
 
-            if (message.senderID != careOf) {
-                String goBetween = this.whatsHisName(careOf);
+                // and what was the message again?
+                String text = blockAssembler.getText(message.senderID, message.blockIndex);
 
-                System.out.println(sender+" (via "+goBetween+"): "+text);
-            } else {
-                System.out.println(sender+": "+text);
+                if (message.senderID != careOf) {
+                    String goBetween = this.whatsHisName(careOf);
+
+                    System.out.println(sender+" (via "+goBetween+"): "+text);
+                } else {
+                    System.out.println(sender+": "+text);
+                }
+
+                // we are no longer "building" this block so remove it from assembler
+                blockAssembler.removeBlock(message.senderID, message.blockIndex);
+            }else{
+                synchronized(this.client.pendingBlocksToSave){
+                    SimpleEntry<byte[], Integer> blockToSave = new SimpleEntry<byte[], Integer>(blockAssembler.getBinary(message.senderID, message.blockIndex), message.senderID);
+                    this.client.pendingBlocksToSave.add(blockToSave);
+                }
             }
-
-            // we are no longer "building" this block so remove it from assembler
-            blockAssembler.removeBlock(message.senderID, message.blockIndex);
         }
-
-        // Sending over UDP, so the HAVE message might get lost in the mail.
-        // TODO set up a timeout to resend if no one is interested.
     }
 
     /**

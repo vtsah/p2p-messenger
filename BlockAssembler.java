@@ -55,7 +55,7 @@ public class BlockAssembler {
 
         // this may be the first message in this block
         if(bb == null){
-            bb = new BlockBuilder(this, message.senderID, message.blockIndex, message.blockOffset, message.blockSize);
+            bb = new BlockBuilder(this, message.type, message.senderID, message.blockIndex, message.blockOffset, message.blockSize);
             blocks.put(new IncompleteMessageTuple(message.senderID, message.blockIndex), bb);
         }
 
@@ -132,6 +132,30 @@ public class BlockAssembler {
             return 0.0;
 
         return bb.getProgress();
+    }
+
+    /**
+     *
+     */
+    public boolean blockIsText(int senderID, int blockIndex){
+        BlockBuilder inQuestion = getBlockBuilder(senderID, blockIndex);
+
+        if(inQuestion == null)
+            return false;
+
+        return inQuestion.isText();
+    }
+
+    /**
+     *
+     */
+    public boolean blockIsAFile(int senderID, int blockIndex){
+        BlockBuilder inQuestion = getBlockBuilder(senderID, blockIndex);
+
+        if(inQuestion == null)
+            return false;
+
+        return inQuestion.isAFile();
     }
 
     private BlockBuilder getBlockBuilder(int senderID, int blockIndex){
@@ -237,8 +261,9 @@ class BlockBuilder {
      */
     public Message.Type blockType = Message.Type.TEXT;
 
-    public BlockBuilder(BlockAssembler parent, int senderID, int blockIndex, int blockOffset, int blockSize){
+    public BlockBuilder(BlockAssembler parent, Message.Type blockType, int senderID, int blockIndex, int blockOffset, int blockSize){
         this.blockAssembler = parent;
+        this.blockType = blockType;
         this.pieces = new TreeMap<Integer, Message>();
         this.senderID = senderID;
         this.blockSize = blockSize;
@@ -290,7 +315,7 @@ class BlockBuilder {
 
         ByteArrayOutputStream os = new ByteArrayOutputStream();
         for (Map.Entry<Integer, Message> entry : pieces.entrySet()) {
-            Message m = (Message) entry.getValue();
+            Message m = entry.getValue();
             if(m.data == null)
                 continue;
 

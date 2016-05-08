@@ -5,6 +5,7 @@
 
 import java.io.*;
 import java.util.*;
+import java.util.AbstractMap.SimpleEntry;
 import java.net.*;
 import java.nio.*;
 import java.nio.charset.*;
@@ -46,6 +47,11 @@ public class Client {
     public User user = null;
 
     /**
+     * A list of all blocks that we can save right now.
+     */
+    public Queue<SimpleEntry<byte[], Integer>> pendingBlocksToSave = null;
+
+    /**
      * Creates client.
      */
     public Client(String groupName, InetAddress serverAddress, int serverPort, String username) {
@@ -60,6 +66,7 @@ public class Client {
         }
         
         this.chat = new Chat(this, group, this.userUUID);
+        this.pendingBlocksToSave = new LinkedList<SimpleEntry<byte[], Integer>>();
 
         // notify everyone in the chat that I exist
         this.beLoud();
@@ -123,10 +130,21 @@ public class Client {
      */
     public void startMessaging() {
         while (true) {
+            
+
             InputStreamReader converter = new InputStreamReader(System.in);
             BufferedReader in = new BufferedReader(converter);
             try {
                 String message = in.readLine();
+
+                synchronized(pendingBlocksToSave){
+                if(!pendingBlocksToSave.isEmpty()){
+                    SimpleEntry<byte[], Integer> pair = pendingBlocksToSave.remove();
+                    FileSendingUtil fileReceiver = new FileSendingUtil(this.chat);
+                    fileReceiver.handleReceivingFile(pair.getKey(), pair.getValue().intValue());
+                    continue;
+                }
+            }
 
                 if(FileSendingUtil.userWantsToSendFile(message)){
                     FileSendingUtil fileSender = new FileSendingUtil(this.chat);
@@ -134,7 +152,7 @@ public class Client {
                 }else{
                     this.chat.newBlock(message);
                 }
-            } catch (IOException ex) {
+            } catch (Exception ex) {
                 ex.printStackTrace();
             }
             
