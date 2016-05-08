@@ -8,7 +8,6 @@ import java.util.*;
 import java.net.*;
 import java.nio.*;
 import java.nio.charset.*;
-import java.util.AbstractMap.SimpleEntry;
 import java.math.*;
 
 public class Chat {
@@ -175,8 +174,6 @@ public class Chat {
         Message myVersion = this.getMessage(message.senderID, message.sequenceNumber);
 
         if (myVersion == null) {
-            System.err.println("Someone asked for something I don't have: sequence number " + message.sequenceNumber 
-                + " from " + whatsHisName(message.senderID));
             return; // someone asked for something I don't have
         }
 
@@ -298,10 +295,8 @@ public class Chat {
                 // we are no longer "building" this block so remove it from assembler
                 blockAssembler.removeBlock(message.senderID, message.blockIndex);
             }else{
-                synchronized(this.client.pendingBlocksToSave){
-                    SimpleEntry<byte[], Integer> blockToSave = new SimpleEntry<byte[], Integer>(blockAssembler.getBinary(message.senderID, message.blockIndex), message.senderID);
-                    this.client.pendingBlocksToSave.add(blockToSave);
-                }
+                FileSendingUtil receiver = new FileSendingUtil(this);
+                receiver.handleReceivingFile(blockAssembler.getBinary(message.senderID, message.blockIndex), message.senderID);
             }
         }
     }
@@ -545,8 +540,7 @@ public class Chat {
                 // get the message
                 Message messageToSend = this.client.chat.getMessage(messageCreator, sequenceNumber);
                 if (messageToSend == null || messageToSend.data == null) {
-                    System.err.println("Message with creator "+messageCreator+" sequence number "+sequenceNumber+" requested by "+connectedPeer.user.username+" from client who doesn't have it");
-                    return;                
+                    return; // sadly we don't have this message
                 }
 
                 // send back the message's data.

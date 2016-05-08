@@ -57,6 +57,9 @@ public class BlockAssembler {
         if(bb == null){
             bb = new BlockBuilder(this, message.type, message.senderID, message.blockIndex, message.blockOffset, message.blockSize);
             blocks.put(new IncompleteMessageTuple(message.senderID, message.blockIndex), bb);
+
+            if(message.type == Message.Type.FILE && message.senderID != chat.hostID)
+                System.out.println(chat.whatsHisName(message.senderID)+" is sending a file...");
         }
 
         bb.addMessage(message);

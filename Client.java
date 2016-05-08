@@ -6,6 +6,7 @@
 import java.io.*;
 import java.util.*;
 import java.util.AbstractMap.SimpleEntry;
+import java.util.concurrent.locks.*;
 import java.net.*;
 import java.nio.*;
 import java.nio.charset.*;
@@ -66,7 +67,6 @@ public class Client {
         }
         
         this.chat = new Chat(this, group, this.userUUID);
-        this.pendingBlocksToSave = new LinkedList<SimpleEntry<byte[], Integer>>();
 
         // notify everyone in the chat that I exist
         this.beLoud();
@@ -130,21 +130,9 @@ public class Client {
      */
     public void startMessaging() {
         while (true) {
-            
-
-            InputStreamReader converter = new InputStreamReader(System.in);
-            BufferedReader in = new BufferedReader(converter);
+            Scanner in = new Scanner(System.in);
             try {
-                String message = in.readLine();
-
-                synchronized(pendingBlocksToSave){
-                if(!pendingBlocksToSave.isEmpty()){
-                    SimpleEntry<byte[], Integer> pair = pendingBlocksToSave.remove();
-                    FileSendingUtil fileReceiver = new FileSendingUtil(this.chat);
-                    fileReceiver.handleReceivingFile(pair.getKey(), pair.getValue().intValue());
-                    continue;
-                }
-            }
+                String message = in.nextLine();
 
                 if(FileSendingUtil.userWantsToSendFile(message)){
                     FileSendingUtil fileSender = new FileSendingUtil(this.chat);
