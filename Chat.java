@@ -240,7 +240,6 @@ public class Chat {
      * Print the message? Only if it's the next in line.
      */
     public boolean shouldPrintMessage(Message message) {
-        // TODO: print them in order
         return message.senderID != this.hostID; // don't reprint the ones the client is sending.
     }
 
@@ -465,30 +464,6 @@ public class Chat {
             Message toRequest = this.beJealous(peer);
 
             if (toRequest != null) {
-                // synchronized (peer) {
-                //     if (peer.currentlyRequesting) {
-                //         return;
-                //     }
-                //     peer.currentlyRequesting = true;
-                // }
-                // // occupy the spot for the message, so I don't try to download it twice.
-                // this.storeMessage(toRequest);
-
-                // // request this packet.
-                // // should definitely do the request in another thread,
-                // // because don't want to block the control packet thread with a TCP client
-                // Leecher leecher = new Leecher(peer, this, toRequest.senderID, toRequest.sequenceNumber);
-                // Thread leecherThread = new Thread(leecher);
-
-                // leecherThread.start();
-
-                // try{
-                //     leecherThread.join();
-                // }catch(Exception e){
-                //     e.printStackTrace();
-                // }
-
-                // TODO store this message temporarily and start a callback (efficiently)
                 requestTracker.logRequest(toRequest.senderID, toRequest.sequenceNumber);
 
                 peer.sendControlData(new ControlPacket(ControlPacket.Type.REQUEST, this.hostID, toRequest).pack());
