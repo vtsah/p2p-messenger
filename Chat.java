@@ -615,7 +615,7 @@ public class Chat {
             Peer checkPeer = pair.getKey();
             int round = (int) pair.getValue();
 
-            if(round > 2) {
+            if(round > 1) {
                 if(this.client.receiver.DEBUG) System.out.println(this.client.receiver.whatsHisName(checkPeer.user.userID)+" is dead");
                 System.out.println(checkPeer.user.username+" is no longer connected.");
 
