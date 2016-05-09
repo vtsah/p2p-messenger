@@ -118,6 +118,16 @@ public class Receiver implements Runnable {
                     receiveMessage(packet.message, packet.senderID);
                     break;
 
+                    case KEEPALIVE:
+                    if(DEBUG) System.out.println(this.whatsHisName(packet.senderID)+" sent a keepalive packet");
+                    this.client.chat.sendAlive(packet.senderID);
+                    break;
+
+                    case ALIVE:
+                    if(DEBUG) System.out.println(this.whatsHisName(packet.senderID)+" is alive");
+                    this.client.chat.markAlive(packet.senderID);
+                    break;
+
                     case REQUEST:
                     if (DEBUG) System.out.println(this.whatsHisName(packet.senderID)+" sent a request packet");
                     this.client.chat.peerRequestedMessage(packet.senderID, packet.message);
@@ -129,6 +139,11 @@ public class Receiver implements Runnable {
                 }
             } else {
                 System.err.println("Invalid control packet");
+            }
+
+            if((System.currentTimeMillis() - this.client.chat.keepAliveTime) > 120000) { // check 2 minutes (keep alive)
+                this.client.chat.checkKeepAlive();
+                this.client.chat.sendKeepAlive();
             }
         }
     }

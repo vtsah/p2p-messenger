@@ -19,6 +19,7 @@ public class ControlPacket {
         UNCHOKE, // allowing a request to be made.
         INTERESTED, // send when you are interested in a certain packet
         KEEPALIVE, // send lots of these messages to make sure peers are still alive.
+        ALIVE, // verify that you are in fact alive and kicking
         // KEEPALIVE can also be used to remind people how many packets the sender has actually sent
         CANCEL, // to cancel an unchoke if no longer needed.
         DATA, // to transfer a piece/message of data; either binary or text

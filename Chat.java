@@ -59,6 +59,13 @@ public class Chat {
     public RequestTracker requestTracker;
 
     /**
+     * A hashset that stores peers which didn't respond to the keepalive
+     */
+    public HashMap<Peer, Integer> notAlivePeers = new HashMap<Peer, Integer>();
+
+    public long keepAliveTime = 0;
+
+    /**
      * Creates a group chat from the given Group.
      * @param group Data from the Server to initialize a chat among peers.
      */
@@ -531,6 +538,98 @@ public class Chat {
             } else {
                 // System.err.println("Request from choked peer "+whatsHisName(peerID));
             }
+        }
+    }
+
+    /**
+     * Send KEEPALIVE messages to all the peers in this chat.
+     * Each peer is sent a KEEPALIVE control packet
+     * and must respond with an ALIVE control packet
+     * or it will be marked as dead.
+     */
+    public void sendKeepAlive() {
+        Iterator<Peer> peers = this.peers.iterator();
+
+        while (peers.hasNext()) {
+            Peer connectedPeer = peers.next();
+            if(connectedPeer == null) {
+                System.err.println("What?");
+                return;
+            }
+
+            ControlPacket keepAlivePacket = new ControlPacket(ControlPacket.Type.KEEPALIVE, this.hostID, new Message(null, null, this.hostID, 0, 0, 0, 0, System.currentTimeMillis()));
+
+            synchronized(connectedPeer) {
+                connectedPeer.sendControlData(keepAlivePacket.pack());
+            }
+
+                if(this.client.receiver.DEBUG) System.out.println(this.client.receiver.whatsHisName(connectedPeer.user.userID)+" was went a KEEPALIVE");
+        }
+
+        this.keepAliveTime = System.currentTimeMillis();
+    }
+
+    /**
+     * Check if any peer has failed to respond to KEEPALIVE thrice.
+     * Each peer is checked for 3 KEEPALIVE failures.
+     * If there are three, then remove the peer.
+     * Otherwise, increment the number of failed KEEPALIVES.
+     */
+    public void checkKeepAlive() {
+        Iterator<HashMap.Entry<Peer, Integer>> dead = this.notAlivePeers.entrySet().iterator();
+
+        while(dead.hasNext()) {
+            HashMap.Entry<Peer, Integer> pair = dead.next();
+            Peer checkPeer = pair.getKey();
+            int round = (int) pair.getValue();
+            
+            if(round > 2) {
+                if(this.client.receiver.DEBUG) System.out.println(this.client.receiver.whatsHisName(checkPeer.user.userID)+" is dead");
+
+                synchronized(this.notAlivePeers) {
+                    this.notAlivePeers.remove(checkPeer);
+                }
+                synchronized(this.peers) {
+                    this.peers.remove(checkPeer);
+                }
+            } else {
+                if(this.client.receiver.DEBUG) System.out.println(this.client.receiver.whatsHisName(checkPeer.user.userID)+" didn't respond to KEEPALIVE");
+                
+                synchronized(this.notAlivePeers) {
+                    this.notAlivePeers.put(checkPeer, this.notAlivePeers.get(checkPeer) + 1);
+                }
+            }
+        } 
+    }
+
+    /**
+     * Respond to KEEPALIVE message with and ALIVE message.
+     * This will send out an ALIVE response to a KEEPALIVE message.
+     */
+    public void sendAlive(int peerID) {
+        Peer connectedPeer = checkAddressBook(peerID);
+        if (connectedPeer == null) {
+            System.err.println("Got a KEEPALIVE from an unknown user; ignoring it");
+            return;
+        }
+
+        synchronized (connectedPeer) {
+            ControlPacket keepAlivePacket = new ControlPacket(ControlPacket.Type.ALIVE, peerID, new Message(null, null, this.hostID, 0, 0, 0, 0, System.currentTimeMillis()));
+        }
+    }
+
+    /**
+     * Mark a peer ALIVE in response to a ALIVE message.
+     */
+    public void markAlive(int peerID) {
+        Peer connectedPeer = checkAddressBook(peerID);
+        if(connectedPeer == null) {
+            System.err.println("Got an ALIVE from an unknown user; ignoring it");
+            return;
+        }
+
+        synchronized(this.notAlivePeers) {
+            this.notAlivePeers.remove(connectedPeer);
         }
     }
 }
