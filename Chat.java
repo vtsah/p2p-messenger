@@ -294,7 +294,7 @@ public class Chat {
                 String text = blockAssembler.getText(message.senderID, message.blockIndex);
 
                 long yourmilliseconds = System.currentTimeMillis();
-                SimpleDateFormat sdf = new SimpleDateFormat("HH:mm");    
+                SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");    
                 Date resultdate = new Date(yourmilliseconds);
 
                 if (message.senderID != careOf) {

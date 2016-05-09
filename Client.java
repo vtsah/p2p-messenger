@@ -142,7 +142,7 @@ public class Client {
                 String message = in.nextLine();
 
                 long yourmilliseconds = System.currentTimeMillis();
-                SimpleDateFormat sdf = new SimpleDateFormat("HH:mm");            
+                SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");            
                 Date resultdate = new Date(yourmilliseconds);
 
                 System.out.println("("+sdf.format(resultdate)+") "+this.user.username+": "+message);
