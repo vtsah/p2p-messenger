@@ -9,6 +9,7 @@ import java.net.*;
 import java.nio.*;
 import java.nio.charset.*;
 import java.math.*;
+import java.text.SimpleDateFormat;
 
 public class Chat {
 
@@ -87,6 +88,8 @@ public class Chat {
         // periodically be interested
         Thread requestTracker = new Thread(this.requestTracker);
         requestTracker.start();
+
+        this.keepAliveTime = System.currentTimeMillis();
     }
 
     /**
@@ -290,12 +293,16 @@ public class Chat {
                 // and what was the message again?
                 String text = blockAssembler.getText(message.senderID, message.blockIndex);
 
+                long yourmilliseconds = System.currentTimeMillis();
+                SimpleDateFormat sdf = new SimpleDateFormat("HH:mm");    
+                Date resultdate = new Date(yourmilliseconds);
+
                 if (message.senderID != careOf) {
                     String goBetween = this.whatsHisName(careOf);
 
-                    System.out.println(sender+" (via "+goBetween+"): "+text);
+                    System.out.println("("+sdf.format(resultdate)+") "+sender+" (via "+goBetween+"): "+text);
                 } else {
-                    System.out.println(sender+": "+text);
+                    System.out.println("("+sdf.format(resultdate)+") "+sender+": "+text);
                 }
 
                 // we are no longer "building" this block so remove it from assembler
@@ -542,6 +549,29 @@ public class Chat {
     }
 
     /**
+     * Fill notAlivePeers prior to iterating over.
+     * Makes sure all peers are considered when checking KEEPALIVE.
+     */
+    public void fillKeepAlive() {
+        Iterator<Peer> peers = this.peers.iterator();
+
+        while (peers.hasNext()) {
+            Peer connectedPeer = peers.next();
+            if(connectedPeer == null) {
+                System.err.println("What?");
+                return;
+            }
+
+            if(!this.notAlivePeers.containsKey(connectedPeer)) {
+                synchronized(this.notAlivePeers) {
+                    this.notAlivePeers.put(connectedPeer, 0);
+                }
+            }
+
+        }
+    }
+
+    /**
      * Send KEEPALIVE messages to all the peers in this chat.
      * Each peer is sent a KEEPALIVE control packet
      * and must respond with an ALIVE control packet
@@ -563,12 +593,11 @@ public class Chat {
                 connectedPeer.sendControlData(keepAlivePacket.pack());
             }
 
-                if(this.client.receiver.DEBUG) System.out.println(this.client.receiver.whatsHisName(connectedPeer.user.userID)+" was went a KEEPALIVE");
+                if(this.client.receiver.DEBUG) System.out.println(this.client.receiver.whatsHisName(connectedPeer.user.userID)+" was sent a KEEPALIVE");
         }
 
         this.keepAliveTime = System.currentTimeMillis();
     }
-
     /**
      * Check if any peer has failed to respond to KEEPALIVE thrice.
      * Each peer is checked for 3 KEEPALIVE failures.
@@ -578,13 +607,17 @@ public class Chat {
     public void checkKeepAlive() {
         Iterator<HashMap.Entry<Peer, Integer>> dead = this.notAlivePeers.entrySet().iterator();
 
+        if(this.client.receiver.DEBUG) System.out.println("Checking...");
+
         while(dead.hasNext()) {
+            try {
             HashMap.Entry<Peer, Integer> pair = dead.next();
             Peer checkPeer = pair.getKey();
             int round = (int) pair.getValue();
-            
+
             if(round > 2) {
                 if(this.client.receiver.DEBUG) System.out.println(this.client.receiver.whatsHisName(checkPeer.user.userID)+" is dead");
+                System.out.println(checkPeer.user.username+" is no longer connected.");
 
                 synchronized(this.notAlivePeers) {
                     this.notAlivePeers.remove(checkPeer);
@@ -592,12 +625,21 @@ public class Chat {
                 synchronized(this.peers) {
                     this.peers.remove(checkPeer);
                 }
-            } else {
-                if(this.client.receiver.DEBUG) System.out.println(this.client.receiver.whatsHisName(checkPeer.user.userID)+" didn't respond to KEEPALIVE");
+            } else if(round > 0) {
+                if(this.client.receiver.DEBUG) System.out.println(this.client.receiver.whatsHisName(checkPeer.user.userID)+" didn't respond to KEEPALIVE " + this.notAlivePeers.get(checkPeer));
                 
                 synchronized(this.notAlivePeers) {
                     this.notAlivePeers.put(checkPeer, this.notAlivePeers.get(checkPeer) + 1);
                 }
+            } else {
+                synchronized(this.notAlivePeers) {
+                    this.notAlivePeers.put(checkPeer, this.notAlivePeers.get(checkPeer) + 1);
+                }
+            }
+            } catch (Exception e) {
+                //e.printStackTrace();
+                checkKeepAlive();
+                break;
             }
         } 
     }
@@ -609,12 +651,14 @@ public class Chat {
     public void sendAlive(int peerID) {
         Peer connectedPeer = checkAddressBook(peerID);
         if (connectedPeer == null) {
-            System.err.println("Got a KEEPALIVE from an unknown user; ignoring it");
+            if(this.client.receiver.DEBUG) System.err.println("Got a KEEPALIVE from an unknown user; ignoring it");
             return;
         }
 
+        ControlPacket keepAlivePacket = new ControlPacket(ControlPacket.Type.ALIVE, this.hostID, new Message(null, null, this.hostID, 0, 0, 0, 0, System.currentTimeMillis()));
+
         synchronized (connectedPeer) {
-            ControlPacket keepAlivePacket = new ControlPacket(ControlPacket.Type.ALIVE, peerID, new Message(null, null, this.hostID, 0, 0, 0, 0, System.currentTimeMillis()));
+            connectedPeer.sendControlData(keepAlivePacket.pack());
         }
     }
 
@@ -624,7 +668,7 @@ public class Chat {
     public void markAlive(int peerID) {
         Peer connectedPeer = checkAddressBook(peerID);
         if(connectedPeer == null) {
-            System.err.println("Got an ALIVE from an unknown user; ignoring it");
+            if(this.client.receiver.DEBUG) System.err.println("Got an ALIVE from an unknown user; ignoring it");
             return;
         }
 

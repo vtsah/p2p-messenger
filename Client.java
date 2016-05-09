@@ -11,6 +11,7 @@ import java.net.*;
 import java.nio.*;
 import java.nio.charset.*;
 import java.math.*;
+import java.text.SimpleDateFormat;
 
 /**
  * Group Chat Client.
@@ -133,6 +134,12 @@ public class Client {
             Scanner in = new Scanner(System.in);
             try {
                 String message = in.nextLine();
+
+                long yourmilliseconds = System.currentTimeMillis();
+                SimpleDateFormat sdf = new SimpleDateFormat("HH:mm");            
+                Date resultdate = new Date(yourmilliseconds);
+
+                System.out.println("("+sdf.format(resultdate)+") "+this.user.username+": "+message);
 
                 if(FileSendingUtil.userWantsToSendFile(message)){
                     FileSendingUtil fileSender = new FileSendingUtil(this.chat);
