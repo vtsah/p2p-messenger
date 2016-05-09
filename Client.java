@@ -103,6 +103,7 @@ public class Client {
      * @return Group to be a part of.
      */
     public Group requestGroupInfo(String groupName, InetAddress serverAddress, int serverPort) throws IOException {
+        try {
         // connect to server to request chat data
         Socket clientSocket = new Socket(serverAddress, serverPort);
         BufferedInputStream inFromServer = new BufferedInputStream(clientSocket.getInputStream());
@@ -123,6 +124,11 @@ public class Client {
         this.user = group.findMe(this.userUUID);
 
         return group;
+        } catch(ConnectException ex) {
+            System.out.println("Server is not running...");
+            System.exit(0);
+        }
+        return null;
     }
 
     /**
