@@ -197,7 +197,8 @@ public class Client {
         Client client = new Client(args[2], serverIP, serverPort, args[3]);
 
         // connect to chat (P2P)
-        System.out.println("Connected to chat "+client.chat.name+" with "+client.chat.peers.size()+" others");
+        // System.out.println("Connected to chat "+client.chat.name+" with "+client.chat.peers.size()+" others");
+        System.out.println("Connected to chat "+client.chat.name);
 
         client.startMessaging();
     }

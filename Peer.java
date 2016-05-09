@@ -112,7 +112,7 @@ public class Peer {
 
             socket.close();
         } catch (IOException ex) {
-            ex.printStackTrace();
+            //ex.printStackTrace();
             return;
         }
     }
