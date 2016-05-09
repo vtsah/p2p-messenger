@@ -141,7 +141,7 @@ public class Receiver implements Runnable {
                 System.err.println("Invalid control packet");
             }
 
-            if((System.currentTimeMillis() - this.client.chat.keepAliveTime) > 1200) { // check 2 minutes (keep alive)
+            if((System.currentTimeMillis() - this.client.chat.keepAliveTime) > 120000) { // check 2 minutes (keep alive)
                 this.client.chat.fillKeepAlive();
                 this.client.chat.checkKeepAlive();
                 this.client.chat.sendKeepAlive();
