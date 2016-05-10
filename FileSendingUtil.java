@@ -110,7 +110,7 @@ public class FileSendingUtil {
             String cwd = currentRelativePath.toAbsolutePath().toString();
 
             // get the name of a unique file in the current directory
-            whereToPutIt = File.createTempFile(chat.whatsHisName(senderID), ".file", new File(cwd)).getPath();
+            whereToPutIt = File.createTempFile("user."+senderID, ".file", new File(cwd)).getPath();
             
             System.out.println(chat.whatsHisName(senderID)+" sent a file, saving to "+whereToPutIt);
 
