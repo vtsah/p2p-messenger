@@ -43,3 +43,11 @@ The clients also track which of the peers are still in the group using KEEPALIVE
 * Improve choking so that it's done on a tit-for-tat basis which would more efficiently distribute sent files across the chat.
 * Cut out the server and set up chat entry so that log-in occurs by contacting an existing peer and downloading the active members from that peer. This would allow for chats where anyone in the chat can act like a gateway by publicizing their IP address. Alternatively, one could set up chats that only permit entry if the new user knows an existing member.
 * Optimize the piece sizes to find the most efficient balance between smaller pieces and fewer packets to download messages quickly.
+* Create timeouts to resend packets in case they are lost over UDP.
+
+## Problems Encountered
+
+One issue we discovered at the last moment and had difficulty debugging was the IP addresses. At first the peer's IP addresses were as seen by the server, but this didn't work when the client and server were run on the same machine. Then we used `InetAddress.getLocalHost()` which worked for Mac but not for Linux clients on different machines. Then we looked in Network Interfaces table, but on the zoo the result was an unusable VM address. Finally we openned up a TCP connection to google.com in order to find the public IP of a client.
+
+A bug that only showed up when sending multiple messages simultaneously involved not freeing up unchoke slots.
+Another much more difficult problem also involved unchoke slots. Originally data was transmitted over TCP synchronously, and despite lots of synchronization we were unable to stop a peer from requesting after it had been choked, and the refused TCP connection threw exceptions. To solve this problem we transitioned completely to UDP for sending data.
