@@ -26,3 +26,9 @@ To send files, type:
 `/sendfile /path/to/file.txt`
 
 The path above can be either relative to current working directory, or absolute.
+
+## Implementation Details
+
+The mechanism which distributes chat messages and files to all peers is modeled after the Bittorrent protocol.
+Message/file data is broken into 5-byte "pieces." The piece is advertized with HAVE messages. Peers express interest with INTERESTED packets, at which point they are either CHOKE'd or UNCHOKE'd, based on the available unchoke slots. An unchoked peer can send a REQUEST, causing DATA to be returned (see `ControlPacket.java`).
+When the last piece of a message, written by `<AUTHOR>`, is received from `<SENDER>`, it is printed out in the format `(<TIMESTAMP>) <AUTHOR>: [(via <SENDER>)] <MESSAGE>`.
