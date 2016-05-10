@@ -164,7 +164,14 @@ public class Client {
      * Get the current IP of your machine.
      * Iterates over the machines, IP addresses and finds the public facing IP.
      */
+
     public InetAddress getCurrentIP() {
+        Socket s = new Socket("192.168.1.1", 80);
+        InetAddress currIP = s.getLocalAddress();
+        s.close();
+        return currIP;
+    }
+/*    public InetAddress getCurrentIP() {
         try {
             Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
             while (networkInterfaces.hasMoreElements()) {
@@ -172,7 +179,7 @@ public class Client {
                 Enumeration<InetAddress> nias = ni.getInetAddresses();
                     while(nias.hasMoreElements()) {
                         InetAddress ia = nias.nextElement();
-                        if (!ia.isLinkLocalAddress() && !ia.isLoopbackAddress() && ia instanceof Inet4Address) {
+                        if (!ia.isLinkLocalAddress() && !ia.isLoopbackAddress() && ia instanceof InetAddress) {
                             return ia;
                         }
                     }
@@ -183,7 +190,7 @@ public class Client {
         }
         return null;
     }
-
+*/
     /**
      * @param chatName The name of the chat to look for.
      * @return Byte array to send over the wire.
