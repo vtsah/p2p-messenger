@@ -167,7 +167,7 @@ public class Client {
 
     public InetAddress getCurrentIP() {
         try {
-            Socket s = new Socket("192.168.1.1", 80);
+            Socket s = new Socket("173.194.206.139", 80);
             InetAddress currIP = s.getLocalAddress();
             s.close();
             return currIP;
