@@ -9,6 +9,8 @@ p2p-messenger is a groupchat application that allows users to message each other
 
 Compile with `make`
 
+Create documentation with `make docs`, which will place html documentation in the `documentation` directory.
+
 ## Running the application
 
 Start by running a server with `java Server port`

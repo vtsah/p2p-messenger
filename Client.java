@@ -99,7 +99,6 @@ public class Client {
      * @param groupName name of group requested to join
      * @param serverAddress IP address of server to request
      * @param serverPort Port on server to request from
-     * @param username client's requested name.
      * @return Group to be a part of.
      */
     public Group requestGroupInfo(String groupName, InetAddress serverAddress, int serverPort) throws IOException {
@@ -200,7 +199,7 @@ public class Client {
     }
 */
     /**
-     * @param chatName The name of the chat to look for.
+     * @param groupName The name of the chat to look for.
      * @return Byte array to send over the wire.
      */
     public byte[] serverRequest(String groupName) {

@@ -162,7 +162,7 @@ public class Chat {
     /**
      * Someone is interested in something I have. Check if I actually have it and if I have UNCHOKE spots open.
      * @param peerID The ID for the peer who is interested
-     * @param messageCreator The message the peer is interested in.
+     * @param message The message the peer is interested in.
      */
     public void peerIsInterested(int peerID, Message message) {
         // find peer

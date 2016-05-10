@@ -35,7 +35,7 @@ public class Leecher implements Runnable {
      * Creates leecher, preparing to request and save a message
      * @param peer Where to request the message
      * @param chat Where to put the message
-     * @param messageCreater Who wrote the message
+     * @param messageCreator Who wrote the message
      * @param sequenceNumber Which one of his messages you want.
      */
     public Leecher(Peer peer, Chat chat, int messageCreator, int sequenceNumber) {

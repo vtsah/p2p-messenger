@@ -36,7 +36,7 @@ public class Receiver implements Runnable {
     /**
      * Creates a receiver with given data, and opens up a UDP socket for control messages.
      * The port of this UDP socket is available through the port property.
-     * @param data the global data for the client.
+     * @param client Contains the global data for the client.
      */
     public Receiver(Client client) {
         this.client = client;

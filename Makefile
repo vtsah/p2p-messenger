@@ -6,7 +6,7 @@ all:
 	$(JC) $(JFLAGS) *.java
 
 docs:
-	javadoc -d docs *.java
+	javadoc -d documentation *.java
 
 clean:
 	rm -f *.class
