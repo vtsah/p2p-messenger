@@ -166,10 +166,18 @@ public class Client {
      */
 
     public InetAddress getCurrentIP() {
-        Socket s = new Socket("192.168.1.1", 80);
-        InetAddress currIP = s.getLocalAddress();
-        s.close();
-        return currIP;
+        try {
+            Socket s = new Socket("192.168.1.1", 80);
+            InetAddress currIP = s.getLocalAddress();
+            s.close();
+            return currIP;
+        } catch (UnknownHostException ex) {
+            ex.printStackTrace();
+            return null;
+        } catch (IOException ex) {
+            ex.printStackTrace();
+            return null;
+        }
     }
 /*    public InetAddress getCurrentIP() {
         try {
