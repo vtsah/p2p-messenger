@@ -36,3 +36,10 @@ Message/file data is broken into 5-byte "pieces." The piece is advertized with H
 When the last piece of a message, written by `<AUTHOR>`, is received from `<SENDER>`, it is printed out in the format `(<TIMESTAMP>) <AUTHOR>: [(via <SENDER>)] <MESSAGE>`.
 
 The clients also track which of the peers are still in the group using KEEPALIVE messages. Every time a client receives a message, it checks to see if 20 seconds have passed since the last round of KEEPALIVEs. If it has been 20 seconds, the client cycles through the peers and checks if any of them haven't responded to the KEEPALIVE messages with an ALIVE message. Any that haven't responded thrice are marked dead and removed from the chat. Then, the client sends out another round of KEEPALIVE messages to the list of peers.
+
+## Future Improvements
+
+* Create a way to enable logging to record chats (especially long ones that roll off the top of the terminal and are lost permanently).
+* Improve choking so that it's done on a tit-for-tat basis which would more efficiently distribute sent files across the chat.
+* Cut out the server and set up chat entry so that log-in occurs by contacting an existing peer and downloading the active members from that peer. This would allow for chats where anyone in the chat can act like a gateway by publicizing their IP address. Alternatively, one could set up chats that only permit entry if the new user knows an existing member.
+* Optimize the piece sizes to find the most efficient balance between smaller pieces and fewer packets to download messages quickly.
