@@ -6,6 +6,7 @@ p2p-messenger is a groupchat application that allows users to message each other
 ## Installation
 
 `git clone https://github.com/vtsah/p2p-messenger`
+
 Compile with `make`
 
 ## Running the application
