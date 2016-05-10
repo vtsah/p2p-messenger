@@ -161,6 +161,30 @@ public class Client {
     }
 
     /**
+     * Get the current IP of your machine.
+     * Iterates over the machines, IP addresses and finds the public facing IP.
+     */
+    public InetAddress getCurrentIP() {
+        try {
+            Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
+            while (networkInterfaces.hasMoreElements()) {
+                NetworkInterface ni = networkInterfaces.nextElement();
+                Enumeration<InetAddress> nias = ni.getInetAddresses();
+                    while(nias.hasMoreElements()) {
+                        InetAddress ia = nias.nextElement();
+                        if (!ia.isLinkLocalAddress() && !ia.isLoopbackAddress() && ia instanceof Inet4Address) {
+                            return ia;
+                        }
+                    }
+            }
+        } catch (SocketException e) {
+            e.printStackTrace();
+            return null;
+        }
+        return null;
+    }
+
+    /**
      * @param chatName The name of the chat to look for.
      * @return Byte array to send over the wire.
      */
@@ -173,7 +197,7 @@ public class Client {
             IOHelper.writeInt(this.seeder.port, byteStream);
             // send the IP address from my point of view.
             // This may be different from receiver IP due to NAT or if Server is running on this machine
-            IOHelper.writeByteArray(InetAddress.getLocalHost().getAddress(), byteStream);
+            IOHelper.writeByteArray(getCurrentIP().getAddress(), byteStream);
 
         } catch (IOException ex) {
             ex.printStackTrace();
